@@ -1,6 +1,7 @@
 import { RoomManager } from './room.js';
 import { LOCATIONS, generateAssignments, getVoteResult } from './games/spy.js';
 import { DECKS, HeadsUpSession } from './games/headsup.js';
+import { ICONS } from './icons.js';
 
 // ─────────────────────────────────────────────
 // STATE
@@ -12,15 +13,16 @@ const S = {
   myName: '',
   isHost: false,
   roomCode: '',
-  // spy
+  selectedGame: null,
   spyAssignments: null,
   spyLocation: null,
   spyMyAssignment: null,
   spyVotes: {},
+  spySelectedVote: null,
   spyResult: null,
   spyTimer: 480,
   spyTimerInt: null,
-  // headsup
+  spyCrossed: new Set(),
   huSession: null,
   huTimer: 60,
   huTimerInt: null,
@@ -33,16 +35,10 @@ const $app = document.getElementById('app');
 // ─────────────────────────────────────────────
 function render() {
   $app.innerHTML = `
-    <div class="app-bg">
-      <div class="app-bg-grid"></div>
-      <div class="app-bg-vignette"></div>
-      <div class="app-bg-glow abg-1"></div>
-      <div class="app-bg-glow abg-2"></div>
-    </div>
     <div class="rotate-hint">
-      <div style="font-size:3rem">📱</div>
-      <div style="font-family:'Unbounded',sans-serif;font-size:1.4rem;font-weight:900;">Rotate your phone</div>
-      <div style="color:var(--muted);font-size:0.85rem;">Party Pocket works best in portrait mode</div>
+      <div>${ICONS.person}</div>
+      <div class="rotate-hint-title">Rotate your phone</div>
+      <div class="rotate-hint-sub">Party Pocket works best in portrait mode</div>
     </div>
     ${view()}
     <div class="toasts" id="toasts"></div>
@@ -52,17 +48,19 @@ function render() {
 
 function view() {
   switch (S.screen) {
-    case 'home':          return vHome();
-    case 'lobby':         return vLobby();
-    case 'game-select':   return vGameSelect();
-    case 'spy-role':      return vSpyRole();
-    case 'spy-discuss':   return vSpyDiscuss();
-    case 'spy-vote':      return vSpyVote();
-    case 'spy-result':    return vSpyResult();
-    case 'hu-decks':      return vHuDecks();
-    case 'hu-play':       return vHuPlay();
-    case 'hu-result':     return vHuResult();
-    default:              return vHome();
+    case 'home':        return vHome();
+    case 'setup':       return vSetup();
+    case 'lobby':       return vLobby();
+    case 'game-select': return vGameSelect();
+    case 'spy-role':         return vSpyRole();
+    case 'spy-discuss':      return vSpyDiscuss();
+    case 'spy-guess-loc':    return vSpyGuessLocation();
+    case 'spy-vote':         return vSpyVote();
+    case 'spy-result':       return vSpyResult();
+    case 'hu-decks':    return vHuDecks();
+    case 'hu-play':     return vHuPlay();
+    case 'hu-result':   return vHuResult();
+    default:            return vHome();
   }
 }
 
@@ -71,396 +69,674 @@ function view() {
 // ─────────────────────────────────────────────
 
 function vHome() {
+  const glcard = ({ game, bg, imgContent, title, desc, players, time, soon }) => `
+    <div class="glcard" ${!soon ? `data-launch="${game}"` : ''}>
+      <div class="glcard__img" style="background:${bg};">
+        ${imgContent}
+        <div class="glcard__fav">${ICONS.star}</div>
+        ${soon ? `<div class="glcard__soon">COMING SOON</div>` : ''}
+      </div>
+      <div class="glcard__body">
+        <div class="glcard__title">${title}</div>
+        <div class="glcard__desc">${desc}</div>
+        <div class="glcard__footer">
+          <div class="glcard__meta">
+            <div class="glcard__meta-item">${ICONS.people} ${players}</div>
+            <div class="glcard__meta-item">${ICONS.clock} ${time}</div>
+          </div>
+          ${!soon ? `<button class="play-btn" data-launch="${game}">Play</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+
   return `
-  <div class="screen stack-0" style="justify-content:center;min-height:100vh;">
-    <div class="stack-20" style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;padding-top:0;">
+  <div class="screen">
 
-      <div class="home-hero">
-        <div class="home-hero-emoji">🎉</div>
-        <div class="home-hero-logo">Party Pocket</div>
-        <div class="home-hero-sub">Free party games • No downloads • No accounts</div>
+    <header class="logo-header">
+      <img src="img/gameline.png" class="logo-img" alt="Game Line" draggable="false"/>
+      <button class="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </header>
+
+    <div class="cork-board cork-board--hero">
+      <div class="hero-grid">
+
+        <div class="hero-pin hero-pin--left" data-launch="spy">
+          <div class="tack tack-red tack--top-center"></div>
+          <img src="img/card-secret-agent.png" class="hero-pin-img" alt="Secret Agent" draggable="false"/>
+        </div>
+
+        <div class="hero-pin hero-pin--right" data-launch="headsup">
+          <div class="tack tack-blue tack--top-center"></div>
+          <img src="img/card-flipup.png" class="hero-pin-img" alt="Flip Up" draggable="false"/>
+        </div>
+
+        <div class="hero-pin hero-pin--left" data-launch="gaslight">
+          <div class="tack tack-green tack--top-center"></div>
+          <img src="img/gaslight-or-burn.png" class="hero-pin-img" alt="Gaslight or Burn" draggable="false"/>
+        </div>
+
+        <div class="hero-pin hero-pin--left" data-launch="tod">
+          <div class="tack tack-purple tack--top-center"></div>
+          <img src="img/truth or dare.png" class="hero-pin-img" alt="Truth or Dare" draggable="false">
+        </div>
+
+      </div>
+    </div>
+
+    <div class="section-heading">
+      <div class="section-icon">${ICONS.controller}</div>
+      <div>
+        <div class="section-title">Pick Your Game</div>
+        <div class="section-sub">Something for every group, every mood, every night.</div>
+      </div>
+    </div>
+
+    <div style="height:16px;"></div>
+
+    <div class="search-wrap">
+      <div class="search-icon">${ICONS.spy}</div>
+      <input class="search-input" placeholder="Search games..." />
+    </div>
+
+    <div style="height:12px;"></div>
+
+    <div class="filter-chips">
+      <button class="chip chip--active" data-filter="multi">${ICONS.people} Multi Device</button>
+      <button class="chip" data-filter="single">${ICONS.person} Single Device</button>
+    </div>
+
+    <div style="height:16px;"></div>
+
+    <div class="game-list">
+      ${glcard({ game:'spy',     bg:'#F0E8D8', title:'Secret Agent',    desc:'Find the spy before time runs out.',              players:'3-12 players', time:'15-30 min', soon:false,
+        imgContent:`<img src="img/card-secret-agent.png" class="glcard-img-fill" draggable="false"/>` })}
+      ${glcard({ game:'gaslight', bg:'#2a3a2a', title:'Gaslight or Burn', desc:'Lie through your teeth or get called out.',         players:'3+ players',  time:'15-30 min', soon:false,
+        imgContent:`<img src="img/gaslight-or-burn.png" class="glcard-img-fill" draggable="false"/>` })}
+      ${glcard({ game:'headsup', bg:'#1A6BE8', title:'Flip Up',           desc:'Hold your phone to your forehead and guess!',       players:'2+ players',  time:'15 min',    soon:false,
+        imgContent:`<img src="img/card-flipup.png" class="glcard-img-fill" draggable="false"/>` })}
+      ${glcard({ game:'tod',     bg:'#D4B8F0', title:'Truth or Dare',     desc:'Take turns choosing truth or dare. Dare to play?',  players:'3+ players',  time:'15-30 min', soon:true,
+        imgContent:`<div style="position:absolute;inset:0;width:100%;height:100%;"><img src="img/truth or dare.png" class="glcard-img-fill" alt="Truth or Dare" draggable="false" style="object-fit:cover;width:100%;height:100%;"/></div>` })}
+    </div>
+
+    <div class="footer-banner">
+      <div class="footer-top">
+        <div class="footer-avatar">${ICONS.people}</div>
+        <div class="footer-copy">
+          <div class="footer-title">New games coming soon!</div>
+          <div class="footer-sub">Follow us for updates and game night inspiration.</div>
+        </div>
+      </div>
+      <div class="footer-actions">
+        <button class="footer-follow">Follow Us</button>
+        <div class="social-row">
+          <div class="social-icon">IG</div>
+          <div class="social-icon">TK</div>
+          <div class="social-icon">FB</div>
+        </div>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+function vSetup() {
+  if (S.selectedGame === 'spy') {
+    return `
+    <div class="ss-wrap">
+      <button class="ss-back" id="btn-back-home">${ICONS.back} Back</button>
+
+      <div class="ss-hero">
+        <div class="ss-agency-label">GAMELINE INTELLIGENCE DIVISION</div>
+        <div class="ss-emblem">
+          <div class="ss-emblem-ring">${ICONS.spy}</div>
+          <div class="ss-emblem-ping"></div>
+        </div>
+        <div class="ss-op-label">// OPERATION //</div>
+        <div class="ss-title">Secret Agent</div>
+        <div class="ss-classified-stamp">CLASSIFIED</div>
+        <div class="ss-badge-row">
+          <span class="ss-badge">👥 3–10 AGENTS</span>
+          <span class="ss-badge">🌐 MULTI-DEVICE</span>
+        </div>
       </div>
 
-      <div class="card card-glow-purple stack-16" style="display:flex;flex-direction:column;gap:16px;">
-        <div>
-          <div class="form-label">Your name</div>
-          <input class="input" id="inp-name" placeholder="Enter your name..." maxlength="16" value="${esc(S.myName)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <div class="ss-folder">
+        <div class="ss-folder-tab">AGENT DOSSIER</div>
+        <div class="ss-folder-body">
+          <div class="ss-folder-stamp">TOP SECRET</div>
+          <div class="ss-field-label">AGENT DESIGNATION</div>
+          <div class="ss-input-wrap">
+            <span class="ss-input-icon">${ICONS.person}</span>
+            <input class="ss-input" id="inp-name" placeholder="Enter your name…" maxlength="16"
+              value="${esc(S.myName)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+          </div>
+
+          <button class="ss-btn-create btn" id="btn-create">
+            ${ICONS.home} INITIATE MISSION
+          </button>
+
+          <div class="ss-or"><span>or enter access code</span></div>
+
+          <div class="ss-join-row">
+            <input class="ss-code-input" id="inp-code" placeholder="ABCD" maxlength="4"
+              autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"/>
+            <button class="ss-join-btn btn" id="btn-join">${ICONS.arrow}</button>
+          </div>
         </div>
-        <button class="btn btn-pink" id="btn-create">
-          <span style="font-size:1rem;">🏠</span> Create a Room
-        </button>
-        <div class="divider">or join a room</div>
-        <div>
-          <div class="form-label">Room code</div>
-          <input class="input input-code" id="inp-code" placeholder="ABCD" maxlength="4" value="" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"/>
-        </div>
-        <button class="btn btn-cyan" id="btn-join">
-          <span style="font-size:1rem;">🚀</span> Join Room
-        </button>
       </div>
 
-      <a href="index.html" class="back-home">← Back to home</a>
+      <div class="ss-footer">${ICONS.lock} CLASSIFIED &middot; EYES ONLY &middot; DO NOT DISTRIBUTE</div>
+    </div>`;
+  }
+
+  const cfg = {
+    headsup: { name:'Heads Up!', color:'var(--accent-blue)', desc:'Pass-around party game' },
+  }[S.selectedGame] || { name:'Game', color:'var(--navy)', desc:'' };
+
+  return `
+  <div class="screen">
+    <nav class="nav-bar">
+      <button class="nav-back" id="btn-back-home">${ICONS.back} Back</button>
+      <div class="nav-title--center">Party Pocket</div>
+    </nav>
+    <div class="setup-form">
+      <div class="setup-game-badge" style="background:${cfg.color};">
+        <div>
+          <div class="setup-game-name">${cfg.name}</div>
+          <div class="setup-game-desc">${cfg.desc}</div>
+        </div>
+      </div>
+      <div class="input-wrap">
+        <span class="input-icon">${ICONS.person}</span>
+        <input class="input" id="inp-name" placeholder="Your name..." maxlength="16"
+          value="${esc(S.myName)}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+      </div>
+      <button class="btn btn-primary" id="btn-create">${ICONS.home} Create a Room</button>
+      <div class="divider">or join a room</div>
+      <div class="join-row">
+        <input class="input-code" id="inp-code" placeholder="ABCD" maxlength="4"
+          autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"/>
+        <button class="btn btn-green btn-join" id="btn-join">${ICONS.arrow}</button>
+      </div>
+      <div class="hint-text">${ICONS.lock} Free forever &middot; Works in any browser</div>
     </div>
   </div>`;
 }
 
 function vLobby() {
-  const url = `${location.origin}${location.pathname}?join=${S.roomCode}`;
+  if (S.selectedGame === 'spy') return vSpyLobby();
   const myId = S.room?.myId;
-
   return `
-  <div class="screen stack-16" style="display:flex;flex-direction:column;gap:16px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <button class="app-back" id="btn-back">✕ Leave</button>
+  <div class="screen">
+    <nav class="nav-bar">
+      <button class="nav-back" id="btn-back">${ICONS.back} Leave</button>
+      <div class="nav-title--center">Party Pocket</div>
+    </nav>
+
+    <div class="cork-strip cork-strip--lobby">
+      <div class="room-code-sticky" id="btn-copy-code">
+        <div class="tack tack-red tack--lobby-left"></div>
+        <div class="tack tack-red tack--lobby-right"></div>
+        <div class="room-code-value">${S.roomCode}</div>
+        <div class="room-code-hint">Tap to copy room code</div>
+      </div>
     </div>
 
-    <div class="room-code-box" id="btn-copy-code" title="Tap to copy code">
-      <div class="room-code-eyebrow">Room Code — tap to copy</div>
-      <div class="room-code-value">${S.roomCode}</div>
-      <div class="room-code-hint">Others go to partypocket.app and enter this code</div>
-    </div>
-
-    <div class="card stack-12" style="display:flex;flex-direction:column;gap:12px;">
-      <div class="row row-between items-center" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;">
-        <div style="font-family:'Unbounded',sans-serif;font-size:0.78rem;font-weight:900;">
-          Players <span style="color:var(--muted);">(${S.players.length})</span>
+    <div class="cream cream--top">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="section-label section-label--flat">Players (${S.players.length})</span>
+          <span class="live-indicator"><span class="live-dot"></span> Live</span>
         </div>
-        <div style="display:flex;align-items:center;gap:7px;font-size:0.75rem;color:var(--green);font-weight:700;">
-          <div class="waiting-dot"></div> Live
+        <div class="player-list">
+          ${S.players.map(p => `
+            <div class="player-row">
+              <div class="player-avatar ${avClass(p.name)}">${esc(p.name.charAt(0).toUpperCase())}</div>
+              <div class="player-name">${esc(p.name)}</div>
+              ${p.isHost ? '<span class="player-tag tag-host">Host</span>' : ''}
+              ${p.id === myId && !p.isHost ? '<span class="player-tag tag-you">You</span>' : ''}
+            </div>
+          `).join('')}
         </div>
       </div>
-      <div class="player-list">
-        ${S.players.map(p => `
-          <div class="player-chip">
-            <div class="player-avatar" style="background:${avBg(p.emoji)}">${p.emoji}</div>
-            <div class="player-chip-name">${esc(p.name)}</div>
-            ${p.isHost ? '<div class="player-chip-tag tag-host">Host</div>' : ''}
-            ${p.id === myId && !p.isHost ? '<div class="player-chip-tag tag-you">You</div>' : ''}
+
+      ${S.isHost ? `
+        <button class="btn btn-orange" id="btn-pick-game" ${S.players.length < 2 ? 'disabled' : ''}>
+          ${ICONS.controller} Pick a Game
+        </button>
+        ${S.players.length < 2 ? `<div class="hint-text">Need at least 2 players to start</div>` : ''}
+      ` : `
+        <div class="info-box info-navy">Waiting for the host to start the game...</div>
+      `}
+
+      <button class="btn btn-ghost" id="btn-copy-link">
+        ${ICONS.link} Copy Invite Link
+      </button>
+    </div>
+  </div>`;
+}
+
+function vSpyLobby() {
+  const myId = S.room?.myId;
+  return `
+  <div class="sa-screen">
+    <div class="sa-topbar">
+      <button class="sa-back-btn" id="btn-back">${ICONS.back} ABORT</button>
+      <div class="sa-topbar-brand">SECRET AGENT</div>
+      <div class="sa-topbar-spacer"></div>
+    </div>
+
+    <div class="sa-lobby-hero">
+      <div class="sa-agency-label">GAMELINE INTELLIGENCE DIVISION</div>
+      <button class="sa-casefile-card" id="btn-copy-code">
+        <div class="sa-casefile-tab">CASE FILE</div>
+        <div class="sa-casefile-body">
+          <div class="sa-casefile-code">${S.roomCode}</div>
+          <div class="sa-casefile-hint">Tap to copy access code</div>
+        </div>
+      </button>
+    </div>
+
+    <div class="sa-panel">
+      <div class="sa-panel-header">
+        <span class="sa-panel-label">AGENT ROSTER &nbsp;<span class="sa-count">${S.players.length}</span></span>
+        <span class="sa-live"><span class="sa-live-dot"></span> LIVE</span>
+      </div>
+      <div class="sa-agent-list">
+        ${S.players.map((p, i) => `
+          <div class="sa-agent-row">
+            <div class="sa-agent-av av-${i % 6}">${esc(p.name.charAt(0).toUpperCase())}</div>
+            <div class="sa-agent-name">${esc(p.name)}</div>
+            ${p.isHost ? `<span class="sa-agent-tag">HANDLER</span>` : ''}
+            ${p.id === myId && !p.isHost ? `<span class="sa-agent-tag sa-agent-tag--you">YOU</span>` : ''}
           </div>
         `).join('')}
       </div>
     </div>
 
-    ${S.isHost ? `
-      <button class="btn btn-green" id="btn-pick-game" ${S.players.length < 2 ? 'disabled' : ''}>
-        <span style="font-size:1rem;">🎮</span> Pick a Game
+    <div class="sa-lobby-actions">
+      ${S.isHost ? `
+        <button class="sa-btn-mission btn" id="btn-pick-game" ${S.players.length < 3 ? 'disabled' : ''}>
+          ${ICONS.arrow} INITIATE MISSION
+        </button>
+        ${S.players.length < 3 ? `<div class="sa-hint-text">Minimum 3 agents required</div>` : ''}
+      ` : `
+        <div class="sa-standby-msg">Standby — awaiting handler command</div>
+      `}
+      <button class="sa-btn-ghost btn" id="btn-copy-link">
+        ${ICONS.link} Send Invite Signal
       </button>
-      ${S.players.length < 2 ? `<div class="text-center text-muted text-sm">Need at least 2 players to start</div>` : ''}
-    ` : `
-      <div class="info-box info-purple text-center">
-        ⏳ Waiting for the host to start the game…
-      </div>
-    `}
-
-    <button class="btn btn-ghost btn-sm" id="btn-copy-link">
-      🔗 Copy Invite Link
-    </button>
+    </div>
   </div>`;
 }
 
 function vGameSelect() {
   const n = S.players.length;
+  const card = ({ game, name, accent, icon, label, tack, soon, desc, players, side }) => `
+    <div class="game-card game-card--${side}${soon ? ' game-card--soon' : ''}" ${!soon ? `data-game="${game}"` : ''}>
+      <div class="tack tack-${tack} tack--top-center"></div>
+      <div class="game-card-strip" style="background:${accent};"></div>
+      ${soon ? '<div class="game-card-ribbon">COMING SOON</div>' : ''}
+      <div class="game-card-name">${name}</div>
+      <div class="game-card-icon" style="color:${accent};">${ICONS[icon]}</div>
+      <div class="game-card-desc">${desc}</div>
+      <div class="game-card-players">${players}</div>
+      <div class="game-card-mode" style="color:${accent};">${label}</div>
+    </div>`;
+
   return `
-  <div class="screen stack-20" style="display:flex;flex-direction:column;gap:20px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <button class="app-back" id="btn-to-lobby">← Lobby</button>
-    </div>
+  <div class="screen screen--cork">
+    <nav class="nav-bar">
+      <button class="nav-back" id="btn-to-lobby">${ICONS.back} Back</button>
+      <div class="nav-title--center">Pick a Game</div>
+    </nav>
 
-    <div style="font-family:'Unbounded',sans-serif;font-size:1.3rem;font-weight:900;letter-spacing:-0.02em;width:100%;">
-      Pick a game 🎮
-    </div>
+    ${n < 3 ? `<div class="info-box info-alert">Secret Agent needs 3+ players (you have ${n})</div>` : ''}
 
-    <div class="section-label">📡 Multi-Device — everyone joins</div>
     <div class="game-grid">
-      <div class="game-tile t-pink ${n < 3 ? 'game-tile-coming' : ''}" data-game="spy">
-        <span class="game-tile-badge badge-multi">Multi</span>
-        <div class="game-tile-emoji">🕵️</div>
-        <div class="game-tile-name">Secret Agent</div>
-        <div class="game-tile-players">3+ players</div>
-      </div>
-      <div class="game-tile t-purple game-tile-coming">
-        <span class="game-tile-badge badge-soon">Soon</span>
-        <div class="game-tile-emoji">🧠</div>
-        <div class="game-tile-name">Trivia Blitz</div>
-        <div class="game-tile-players">2+ players</div>
-      </div>
+      ${card({ game:'spy',     name:'Secret Agent',      accent:'#E8481A', icon:'spy',        label:'MULTI-DEVICE', tack:'red',    soon:false, desc:'Find the spy before time runs out.',          players:'3+ players', side:'left'  })}
+      ${card({ game:'headsup', name:'Heads Up!',         accent:'#1A6BE8', icon:'headphones', label:'PASS AROUND',  tack:'blue',   soon:false, desc:'Hold your phone to your forehead and guess!', players:'2+ players', side:'right' })}
+      ${card({ game:'trivia',  name:'Trivia Blitz',      accent:'#1DAA5C', icon:'star',       label:'MULTI-DEVICE', tack:'green',  soon:true,  desc:'Race to answer before everyone else.',        players:'2+ players', side:'left'  })}
+      ${card({ game:'dare',    name:'Truth or Dare',     accent:'#E8481A', icon:'flame',      label:'PASS AROUND',  tack:'red',    soon:true,  desc:'How honest are you really?',                  players:'3+ players', side:'right' })}
+      ${card({ game:'wyr',     name:'Would You Rather',  accent:'#8B3FCF', icon:'question',   label:'PASS AROUND',  tack:'purple', soon:true,  desc:'Pick a side, start a conversation.',           players:'2+ players', side:'left'  })}
+      ${card({ game:'doodle',  name:'Doodle & Guess',    accent:'#F5A623', icon:'pencil',     label:'MULTI-DEVICE', tack:'yellow', soon:true,  desc:'Draw it, guess it, laugh at it.',             players:'3+ players', side:'right' })}
+      ${card({ game:'nhie',    name:'Never Have I Ever', accent:'#1DAA5C', icon:'hand',       label:'PASS AROUND',  tack:'green',  soon:true,  desc:"See who has (and hasn't) done what!",         players:'3+ players', side:'left'  })}
+      ${card({ game:'hottake', name:'Hot Take',          accent:'#E8481A', icon:'chat',       label:'PASS AROUND',  tack:'red',    soon:true,  desc:'Share your most controversial opinions.',      players:'2+ players', side:'right' })}
     </div>
-    ${n < 3 ? `<div class="info-box info-pink text-sm">Secret Agent needs 3+ players (you have ${n})</div>` : ''}
-
-    <div class="section-label">📱 Single Device — pass it around</div>
-    <div class="game-grid">
-      <div class="game-tile t-green" data-game="headsup">
-        <span class="game-tile-badge badge-solo">Solo</span>
-        <div class="game-tile-emoji">🙋</div>
-        <div class="game-tile-name">Heads Up!</div>
-        <div class="game-tile-players">2+ players</div>
-      </div>
-      <div class="game-tile t-orange game-tile-coming">
-        <span class="game-tile-badge badge-soon">Soon</span>
-        <div class="game-tile-emoji">🔥</div>
-        <div class="game-tile-name">Truth or Dare</div>
-        <div class="game-tile-players">3+ players</div>
-      </div>
-      <div class="game-tile t-cyan game-tile-coming">
-        <span class="game-tile-badge badge-soon">Soon</span>
-        <div class="game-tile-emoji">🤔</div>
-        <div class="game-tile-name">Would You Rather</div>
-        <div class="game-tile-players">2+ players</div>
-      </div>
-      <div class="game-tile t-yellow game-tile-coming">
-        <span class="game-tile-badge badge-soon">Soon</span>
-        <div class="game-tile-emoji">🎨</div>
-        <div class="game-tile-name">Doodle & Guess</div>
-        <div class="game-tile-players">3+ players</div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;">
-      ${csRow('🍾','Never Have I Ever')}${csRow('📖','Story Builder')}
-      ${csRow('🎵','Name That Tune')} ${csRow('🃏','Hot Take')}
-    </div>
-  </div>`;
-}
-
-function csRow(e, n) {
-  return `<div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;opacity:0.4;">
-    <span style="font-size:1.2rem;">${e}</span>
-    <span style="font-size:0.78rem;font-weight:700;">${n}</span>
-    <span style="margin-left:auto;font-size:0.6rem;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:0.06em;">Soon</span>
   </div>`;
 }
 
 // ─── SPY ───
 
 function vSpyRole() {
-  const a = S.spyMyAssignment;
-  if (!a) return `<div class="screen"><div class="text-muted text-center" style="margin-top:50%;transform:translateY(-50%);">Loading…</div></div>`;
-
-  if (a.isSpy) {
-    return `
-    <div class="screen stack-16" style="display:flex;flex-direction:column;gap:16px;">
-      <div class="app-header">
-        <a href="index.html" class="app-logo">PartyPocket</a>
-        <div style="font-size:0.72rem;color:var(--muted);font-weight:700;font-family:'Unbounded',sans-serif;">🕵️ SECRET AGENT</div>
-      </div>
-
-      <div class="role-reveal-card role-spy">
-        <div class="role-eyebrow">Your identity</div>
-        <span class="role-big-emoji">🕵️</span>
-        <div class="role-main">YOU ARE<br/>THE SPY</div>
-        <div class="role-sub">You don't know the location.<br/>Ask smart questions. Blend in.</div>
-        <div class="role-badge">Guess the location to win!</div>
-      </div>
-
-      <div class="card stack-10" style="display:flex;flex-direction:column;gap:10px;">
-        <div class="section-label">Possible locations</div>
-        <div class="location-grid">
-          ${LOCATIONS.map(l => `<div class="location-pill">${l.emoji} ${l.name}</div>`).join('')}
-        </div>
-      </div>
-
-      ${S.isHost
-        ? `<button class="btn btn-pink" id="btn-spy-start">Everyone's ready — Start! 🚀</button>`
-        : `<div class="info-box info-purple text-center">⏳ Waiting for host to start the round…</div>`
-      }
-    </div>`;
-  }
-
   return `
-  <div class="screen stack-16" style="display:flex;flex-direction:column;gap:16px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <div style="font-size:0.72rem;color:var(--muted);font-weight:700;font-family:'Unbounded',sans-serif;">🕵️ SECRET AGENT</div>
+  <div class="sa-screen">
+    <div class="sa-topbar">
+      <button class="sa-back-btn" id="btn-sa-leave">${ICONS.back} LEAVE</button>
+      <div class="sa-topbar-brand">SECRET AGENT</div>
+      <div class="sa-topbar-phase">BRIEFING</div>
     </div>
 
-    <div class="role-reveal-card role-civilian">
-      <div class="role-eyebrow">The location is</div>
-      <span class="role-big-emoji">${a.location.emoji}</span>
-      <div class="role-main">${a.location.name}</div>
-      <div style="height:1px;background:rgba(0,240,255,0.12);margin:14px 0;"></div>
-      <div class="role-eyebrow" style="margin-bottom:4px;">Your role</div>
-      <div style="font-family:'Unbounded',sans-serif;font-size:1.1rem;font-weight:900;">${a.role}</div>
-      <div class="role-badge">Find the spy! Don't reveal the location.</div>
+    <div class="sa-role-hero">
+      <div class="sa-role-emblem">
+        <div class="sa-role-emblem-ring">${ICONS.spy}</div>
+        <div class="sa-emblem-ping"></div>
+        <div class="sa-emblem-ping sa-emblem-ping--delay"></div>
+      </div>
+      <div class="sa-role-you-are">OPERATION</div>
+      <div class="sa-role-name">STANDING BY</div>
+      <div class="sa-role-desc">All agents are in position.<br>Assignments will be distributed on launch.</div>
     </div>
 
-    ${S.isHost
-      ? `<button class="btn btn-pink" id="btn-spy-start">Everyone's ready — Start! 🚀</button>`
-      : `<div class="info-box info-cyan text-center">⏳ Waiting for host to start the round…</div>`
-    }
+    <div class="sa-role-footer">
+      ${S.isHost
+        ? `<button class="sa-btn-mission btn" id="btn-spy-start">${ICONS.arrow} START OPERATION</button>`
+        : `<div class="sa-standby-msg">Awaiting handler command...</div>`
+      }
+    </div>
   </div>`;
 }
 
 function vSpyDiscuss() {
   const mins = Math.floor(S.spyTimer / 60);
   const secs = String(S.spyTimer % 60).padStart(2, '0');
-  const pct = S.spyTimer / 480;
-  const R = 38, C = 2 * Math.PI * R;
-  const col = S.spyTimer > 120 ? 'var(--cyan)' : S.spyTimer > 30 ? 'var(--yellow)' : 'var(--pink)';
-  const a = S.spyMyAssignment;
+  const pct  = S.spyTimer / 480;
+  const R = 52, C = 2 * Math.PI * R;
+  const col = S.spyTimer > 120 ? '#cc2222' : S.spyTimer > 30 ? '#F5C200' : '#ff4444';
+  const a   = S.spyMyAssignment;
 
   return `
-  <div class="screen stack-14" style="display:flex;flex-direction:column;gap:14px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <div class="timer-ring" style="position:relative;width:80px;height:80px;flex-shrink:0;">
-        <svg width="80" height="80" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r="${R}" fill="none" stroke="var(--surface3)" stroke-width="5"/>
-          <circle id="timer-arc" cx="40" cy="40" r="${R}" fill="none" stroke="${col}" stroke-width="5"
-            stroke-dasharray="${C*pct} ${C}" stroke-dashoffset="${C/4}" stroke-linecap="round"
-            style="transition:stroke-dasharray 1s linear,stroke 0.4s;"/>
+  <div class="sa-screen">
+    <div class="sa-topbar">
+      <button class="sa-back-btn" id="btn-sa-leave">${ICONS.back} LEAVE</button>
+      <div class="sa-topbar-brand">SECRET AGENT</div>
+      <div class="sa-topbar-phase">OPERATION ACTIVE</div>
+    </div>
+
+    <div class="sa-timer-section">
+      <div class="sa-timer-label">TIME REMAINING</div>
+      <div class="sa-timer-ring-wrap">
+        <svg width="124" height="124" viewBox="0 0 124 124">
+          <circle cx="62" cy="62" r="${R}" fill="none" stroke="rgba(200,20,20,0.15)" stroke-width="8"/>
+          <circle id="timer-arc" cx="62" cy="62" r="${R}" fill="none" stroke="${col}" stroke-width="8"
+            stroke-dasharray="${C * pct} ${C}" stroke-dashoffset="${C / 4}" stroke-linecap="round"/>
         </svg>
-        <div class="timer-num" id="timer-num" style="font-size:1rem;">${mins}:${secs}</div>
+        <div class="sa-timer-num" id="timer-num">${mins}:${secs}</div>
       </div>
     </div>
 
-    <div class="discuss-role-pill">
-      <div class="discuss-role-label">Your role</div>
-      <div class="discuss-role-value">
-        ${a?.isSpy
-          ? `🕵️ <span style="color:var(--purple);">SPY</span> — you don't know the location!`
-          : `${a?.location?.emoji} ${a?.location?.name} &mdash; <span style="color:var(--cyan);">${a?.role}</span>`
-        }
-      </div>
+    <div class="sa-role-chip ${a?.isSpy ? 'sa-role-chip--spy' : 'sa-role-chip--civ'}">
+      <span class="sa-role-chip-dot ${a?.isSpy ? '' : 'sa-role-chip-dot--civ'}"></span>
+      ${a?.isSpy
+        ? `<span>You are <strong>THE SPY</strong> — blend in</span>`
+        : `<span><strong>${esc(a?.location?.name)}</strong> — ${esc(a?.role)}</span>`
+      }
     </div>
 
-    <div class="card stack-10" style="display:flex;flex-direction:column;gap:10px;">
-      <div class="section-label">Players</div>
-      <div class="player-list">
-        ${S.players.map(p => `
-          <div class="player-chip">
-            <div class="player-avatar" style="background:${avBg(p.emoji)}">${p.emoji}</div>
-            <div class="player-chip-name">${esc(p.name)}</div>
-            ${p.isHost ? '<div class="player-chip-tag tag-host">Host</div>' : ''}
+    <div class="sa-agents-section">
+      <div class="sa-section-label">ACTIVE AGENTS</div>
+      <div class="sa-agents-grid">
+        ${S.players.map((p, i) => `
+          <div class="sa-agent-chip">
+            <div class="sa-agent-av av-${i % 6}">${esc(p.name.charAt(0).toUpperCase())}</div>
+            <div class="sa-agent-name">${esc(p.name)}</div>
+            ${p.isHost ? '<div class="sa-agent-tag">HANDLER</div>' : ''}
           </div>
         `).join('')}
       </div>
     </div>
 
-    <div class="info-box info-yellow">
-      💬 Take turns asking one question each.<br/>
-      🎯 Civilians: spot the spy!<br/>
-      🕵️ Spy: blend in &amp; guess the location to win!
+    ${a?.isSpy ? `
+    <div class="sa-loc-section">
+      <div class="sa-loc-section-label">LOCATIONS — TAP TO ELIMINATE</div>
+      <div class="sa-loc-grid">
+        ${LOCATIONS.map(l => `
+          <div class="sa-loc-pill sa-loc-crossable ${S.spyCrossed.has(l.name) ? 'sa-loc-crossed' : ''}"
+               data-cross="${l.name}">
+            ${l.emoji} ${l.name}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ` : `
+    <div class="sa-rules-box">
+      <div class="sa-rules-row"><span>🗣️</span><span>Take turns — one question each</span></div>
+      <div class="sa-rules-row"><span>🔍</span><span>Expose the spy without revealing the location</span></div>
+      <div class="sa-rules-row"><span>🕵️</span><span>Don't let the spy guess the location!</span></div>
+    </div>
+    `}
+
+    <div class="sa-discuss-actions">
+      ${S.isHost ? `<button class="sa-btn-mission btn" id="btn-spy-vote">${ICONS.vote} COMMENCE VOTING</button>` : ''}
+      ${S.isHost ? `<button class="sa-btn-ghost btn sa-btn-end" id="btn-end-mission">✕ END MISSION</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function vSpyGuessLocation() {
+  const isSpy = S.spyMyAssignment?.isSpy;
+
+  if (!isSpy) {
+    return `
+    <div class="sa-screen">
+      <div class="sa-topbar">
+        <button class="sa-back-btn" id="btn-sa-leave">${ICONS.back} LEAVE</button>
+        <div class="sa-topbar-brand">SECRET AGENT</div>
+        <div class="sa-topbar-phase">SPY'S MOVE</div>
+      </div>
+      <div class="sa-guess-hero">
+        <div class="sa-guess-emblem">${ICONS.spy}</div>
+        <div class="sa-guess-title">SPY IDENTIFIED</div>
+        <div class="sa-guess-sub">The spy has one chance to name the location and escape...</div>
+      </div>
+      <div class="sa-standby-msg" style="padding:0 20px 40px;">Awaiting the spy's final guess</div>
+    </div>`;
+  }
+
+  return `
+  <div class="sa-screen">
+    <div class="sa-topbar">
+      <button class="sa-back-btn" id="btn-sa-leave">${ICONS.back} LEAVE</button>
+      <div class="sa-topbar-brand">SECRET AGENT</div>
+      <div class="sa-topbar-phase">FINAL MOVE</div>
     </div>
 
-    ${S.isHost ? `<button class="btn btn-pink" id="btn-spy-vote">🗳️ Start Voting</button>` : ''}
+    <div class="sa-guess-hero">
+      <div class="sa-guess-emblem">${ICONS.spy}</div>
+      <div class="sa-guess-title">YOU'VE BEEN IDENTIFIED</div>
+      <div class="sa-guess-sub">Name the location to escape — one chance only</div>
+    </div>
+
+    <div class="sa-loc-grid sa-loc-grid--guess">
+      ${LOCATIONS.map(l => `
+        <button class="sa-loc-btn" data-guess="${l.name}">
+          <span class="sa-loc-btn-emoji">${l.emoji}</span>
+          <span class="sa-loc-btn-name">${l.name}</span>
+        </button>
+      `).join('')}
+    </div>
   </div>`;
 }
 
 function vSpyVote() {
-  const myId = S.room?.myId;
-  const myVote = S.spyVotes[myId];
-  const others = S.players.filter(p => p.id !== myId);
+  const myId      = S.room?.myId;
+  const myVote    = S.spyVotes[myId];
+  const selected  = S.spySelectedVote;
+  const others    = S.players.filter(p => p.id !== myId);
+  const voteCount = Object.keys(S.spyVotes).length;
 
   return `
-  <div class="screen stack-20" style="display:flex;flex-direction:column;gap:20px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <div style="font-size:0.72rem;color:var(--muted);font-weight:700;font-family:'Unbounded',sans-serif;">🗳️ VOTE</div>
+  <div class="sa-screen">
+    <div class="sa-topbar">
+      <button class="sa-back-btn" id="btn-sa-leave">${ICONS.back} LEAVE</button>
+      <div class="sa-topbar-brand">SECRET AGENT</div>
+      <div class="sa-topbar-phase">VOTE</div>
     </div>
 
-    <div class="card card-glow-pink text-center stack-8" style="display:flex;flex-direction:column;gap:8px;">
-      <div style="font-size:2rem;">🕵️</div>
-      <div style="font-family:'Unbounded',sans-serif;font-size:1rem;font-weight:900;">Who is the spy?</div>
-      <div class="text-muted text-sm">Vote for who you think is the secret agent</div>
+    <div class="sa-vote-hero">
+      <div class="sa-vote-emblem">${ICONS.spy}</div>
+      <div class="sa-vote-title">IDENTIFY THE SPY</div>
+      <div class="sa-vote-sub">${voteCount} of ${S.players.length} agents confirmed</div>
     </div>
 
-    <div class="stack-8" style="display:flex;flex-direction:column;gap:8px;width:100%;">
-      ${others.map(p => `
-        <button class="vote-option ${myVote === p.id ? 'voted' : ''}" data-vote="${p.id}">
-          <div class="vote-option-avatar" style="background:${avBg(p.emoji)}">${p.emoji}</div>
-          <div style="flex:1;">${esc(p.name)}</div>
-          ${myVote === p.id ? `<div style="color:var(--pink);font-size:0.8rem;">✓ Your vote</div>` : ''}
-        </button>
-      `).join('')}
+    <div class="sa-vote-list">
+      ${others.map(p => {
+        const isSelected = !myVote && selected === p.id;
+        const isVoted    = myVote === p.id;
+        return `
+        <button class="sa-vote-option ${isSelected || isVoted ? 'sa-vote-option--selected' : ''} ${myVote ? 'sa-vote-option--locked' : ''}"
+                data-vote="${p.id}" ${myVote ? 'disabled' : ''}>
+          <div class="sa-agent-av ${avClass(p.name)}">${esc(p.name.charAt(0).toUpperCase())}</div>
+          <div class="sa-vote-name">${esc(p.name)}</div>
+          <div class="sa-vote-meta">
+            ${isVoted ? `<span class="sa-vote-check">${ICONS.check}</span>` : ''}
+          </div>
+        </button>`;
+      }).join('')}
     </div>
 
-    ${S.isHost
-      ? `<button class="btn btn-pink" id="btn-spy-reveal" style="margin-top:8px;">🎭 Reveal the Spy!</button>`
-      : `<div class="info-box info-purple text-center">${myVote ? '✅ Vote cast! Waiting for host to reveal…' : 'Tap a name to cast your vote'}</div>`
-    }
+    <div class="sa-vote-footer">
+      ${myVote
+        ? `<div class="sa-standby-msg">Vote confirmed — awaiting all agents...</div>`
+        : `<button class="sa-btn-mission btn" id="btn-confirm-vote" ${!selected ? 'disabled' : ''}>
+             ${ICONS.vote} CONFIRM VOTE
+           </button>
+           ${!selected ? `<div class="sa-hint-text">Select a suspect first</div>` : ''}`
+      }
+    </div>
   </div>`;
 }
 
 function vSpyResult() {
   const r = S.spyResult;
   if (!r) return '';
-  const spy = S.players.find(p => p.id === r.spyId);
+  const spy   = S.players.find(p => p.id === r.spyId);
   const voted = S.players.find(p => p.id === r.topId);
-  const a = S.spyMyAssignment;
+
+  const spyGuessedRight = r.spyGuessedLocation;
+  const civilianWins = r.caughtSpy && !spyGuessedRight;
+
+  const title  = civilianWins ? 'SPY CAUGHT' : spyGuessedRight ? 'SPY WINS' : 'SPY ESCAPES';
+  const iconEl = civilianWins ? ICONS.check : ICONS.spy;
+  const heroMod = civilianWins ? 'sa-result-hero--win' : 'sa-result-hero--lose';
+
+  let desc = '';
+  if (civilianWins) {
+    desc = `The agents voted out <strong>${esc(voted?.name || '?')}</strong> — who really was the spy!`;
+  } else if (spyGuessedRight) {
+    desc = `<strong>${esc(spy?.name || '?')}</strong> identified the location and wins the round!`;
+  } else {
+    desc = `You burned <strong>${esc(voted?.name || '?')}</strong>, but the real spy was <strong>${esc(spy?.name || '?')}</strong>!`;
+  }
 
   return `
-  <div class="screen stack-16" style="display:flex;flex-direction:column;gap:16px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <div style="font-size:0.72rem;color:var(--muted);font-weight:700;font-family:'Unbounded',sans-serif;">🕵️ RESULTS</div>
+  <div class="sa-screen">
+    <div class="sa-topbar">
+      <button class="sa-back-btn" id="btn-sa-leave">${ICONS.back} LEAVE</button>
+      <div class="sa-topbar-brand">SECRET AGENT</div>
+      <div class="sa-topbar-phase">DEBRIEF</div>
     </div>
 
-    <div class="result-hero ${r.caughtSpy ? 'result-win' : 'result-lose'}">
-      <span class="result-emoji-big">${r.caughtSpy ? '🎉' : '🕵️'}</span>
-      <div class="result-title">${r.caughtSpy ? 'Spy Caught!' : 'Spy Escapes!'}</div>
-      <div class="result-desc">
-        ${r.caughtSpy
-          ? `You voted out <strong>${esc(voted?.name || '?')}</strong> — who really was the spy!`
-          : `You voted out <strong>${esc(voted?.name || '?')}</strong>, but the real spy was <strong>${esc(spy?.name || '?')}</strong>!`
-        }
-      </div>
+    <div class="sa-result-hero ${heroMod}">
+      <div class="sa-result-emblem">${iconEl}</div>
+      <div class="sa-result-stamp">${title}</div>
+      <div class="sa-result-desc">${desc}</div>
     </div>
 
-    <div class="card stack-10" style="display:flex;flex-direction:column;gap:10px;">
-      <div class="section-label">The location was</div>
-      <div style="font-family:'Unbounded',sans-serif;font-size:1.6rem;font-weight:900;color:var(--cyan);">
-        ${S.spyLocation?.emoji} ${S.spyLocation?.name}
-      </div>
-      <div class="section-label" style="margin-top:6px;">The spy was</div>
-      <div class="player-chip">
-        <div class="player-avatar" style="background:${avBg(spy?.emoji || '🕵️')}">${spy?.emoji || '🕵️'}</div>
-        <div class="player-chip-name">${esc(spy?.name || '?')}</div>
-        <div class="player-chip-tag" style="background:rgba(176,96,255,0.12);color:var(--purple);">🕵️ SPY</div>
+    <div class="sa-dossier sa-dossier--debrief">
+      <div class="sa-dossier-tab">MISSION DEBRIEF</div>
+      <div class="sa-dossier-body">
+        <div class="sa-dossier-field">
+          <div class="sa-dossier-label">OPERATION LOCATION</div>
+          <div class="sa-dossier-location">
+            <span class="sa-dossier-emoji">${S.spyLocation?.emoji}</span>
+            <span class="sa-dossier-loc-name">${S.spyLocation?.name}</span>
+          </div>
+        </div>
+        <div class="sa-dossier-divider"></div>
+        <div class="sa-dossier-field">
+          <div class="sa-dossier-label">THE SPY WAS</div>
+          <div class="sa-debrief-spy-row">
+            <div class="sa-agent-av ${avClass(spy?.name || '')}">${(spy?.name || '?').charAt(0).toUpperCase()}</div>
+            <div class="sa-vote-name">${esc(spy?.name || '?')}</div>
+            <span class="sa-spy-tag">SPY</span>
+          </div>
+        </div>
+        <div class="sa-dossier-divider"></div>
+        <div class="sa-result-scores">
+          ${S.players.map(p => {
+            const vc = Object.values(S.spyVotes).filter(v => v === p.id).length;
+            return `
+            <div class="sa-score-row">
+              <div class="sa-agent-av sa-agent-av--sm ${avClass(p.name)}">${p.name.charAt(0).toUpperCase()}</div>
+              <div class="sa-vote-name">${esc(p.name)}</div>
+              <div class="sa-score-votes">${vc} vote${vc !== 1 ? 's' : ''}</div>
+            </div>`;
+          }).join('')}
+        </div>
       </div>
     </div>
 
     ${S.isHost ? `
-      <div class="stack-8" style="display:flex;flex-direction:column;gap:8px;width:100%;">
-        <button class="btn btn-pink" id="btn-spy-again">🔄 Play Again</button>
-        <button class="btn btn-ghost" id="btn-to-game-select">← Game Menu</button>
+      <div class="sa-result-actions">
+        <button class="sa-btn-mission btn" id="btn-spy-again">${ICONS.arrow} PLAY AGAIN</button>
+        <button class="sa-btn-ghost btn" id="btn-to-game-select">${ICONS.back} Mission Select</button>
       </div>
-    ` : `<div class="info-box info-purple text-center">Waiting for host to continue…</div>`}
+    ` : `<div class="sa-standby-msg" style="padding:0 20px 36px;">Waiting for handler...</div>`}
   </div>`;
 }
 
 // ─── HEADS UP ───
 
+const DECK_ACCENTS  = ['#E8481A','#1A6BE8','#8B3FCF','#1AADAA','#1DAA5C','#F5A623'];
+const DECK_TACKS    = ['red','blue','purple','green','green','yellow'];
+const DECK_ICONS    = ['star','controller','people','link','flame','headphones'];
+
 function vHuDecks() {
   return `
-  <div class="screen stack-20" style="display:flex;flex-direction:column;gap:20px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <button class="app-back" id="btn-back">← Back</button>
+  <div class="screen">
+    <nav class="nav-bar">
+      <button class="nav-back" id="btn-back">${ICONS.back} Back</button>
+      <div class="nav-title--center">Heads Up!</div>
+    </nav>
+
+    <div class="cork-strip cork-strip--sm">
+      <div class="panel panel--pinned">
+        <div class="tack tack-red tack--top-center"></div>
+        <div class="cork-label">Choose a Deck</div>
+      </div>
     </div>
 
-    <div style="font-family:'Unbounded',sans-serif;font-size:1.3rem;font-weight:900;letter-spacing:-0.02em;width:100%;">
-      🙋 Heads Up!
-    </div>
-
-    <div class="info-box info-green stack-4" style="display:flex;flex-direction:column;gap:4px;">
-      <div style="font-weight:900;margin-bottom:4px;">How to play</div>
-      📱 Hold the phone to your forehead<br/>
-      👥 Friends describe the word — don't say it!<br/>
-      ⬇️ <strong>Tilt back</strong> = Got It &nbsp; ⬆️ <strong>Tilt forward</strong> = Skip
-    </div>
-
-    <div class="section-label">Choose a deck</div>
-    <div class="game-grid">
-      ${DECKS.map(d => `
-        <div class="game-tile headsup-deck-tile ${d.color}" data-deck="${d.id}"
-          style="border-color:${d.border};">
-          <div class="headsup-deck-emoji">${d.emoji}</div>
-          <div class="headsup-deck-name">${d.name}</div>
-          <div class="headsup-deck-count">${d.cards.length} cards</div>
+    <div class="cream cream--top">
+      <div class="sticky sticky--rotated-neg">
+        <div class="tack tack-yellow tack--sticky-left"></div>
+        <div class="tack tack-yellow tack--sticky-right"></div>
+        <div class="sticky-title">How to play</div>
+        <div class="sticky-body">
+          Hold the phone to your forehead<br>
+          Friends describe the word — don't say it!<br>
+          Tilt back = Got It &nbsp;&nbsp; Tilt forward = Skip
         </div>
-      `).join('')}
+      </div>
+
+      <div class="game-grid game-grid--decks">
+        ${DECKS.map((d, i) => {
+          const accent = DECK_ACCENTS[i % DECK_ACCENTS.length];
+          const tack   = DECK_TACKS[i % DECK_TACKS.length];
+          const icon   = DECK_ICONS[i % DECK_ICONS.length];
+          const side   = i % 2 === 0 ? 'left' : 'right';
+          return `
+          <div class="game-card deck-card game-card--${side}" data-deck="${d.id}">
+            <div class="tack tack-${tack} tack--top-center"></div>
+            <div class="game-card-strip" style="background:${accent};"></div>
+            <div class="game-card-name">${d.name}</div>
+            <div class="game-card-icon" style="color:${accent};">${ICONS[icon]}</div>
+            <div class="game-card-players">${d.cards.length} cards</div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
   </div>`;
 }
@@ -469,97 +745,105 @@ function vHuPlay() {
   const g = S.huSession;
   if (!g || g.isDone() || S.huTimer <= 0) {
     return `
-    <div class="screen stack-20" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:100vh;">
-      <div style="font-size:4rem;animation:resultPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;">🎉</div>
-      <div style="font-family:'Unbounded',sans-serif;font-size:1.6rem;font-weight:900;text-align:center;">Time's up!</div>
-      <button class="btn btn-green" id="btn-hu-results" style="max-width:300px;">See Results →</button>
+    <div class="screen screen--centered">
+      <div class="result-icon result-icon--win">${ICONS.star}</div>
+      <div class="timesup-title">Time's Up!</div>
+      <button class="btn btn-green btn--narrow" id="btn-hu-results">
+        ${ICONS.arrow} See Results
+      </button>
     </div>`;
   }
 
-  const word = g.current();
-  const deck = g.deck;
-  const pct = S.huTimer / g.timeLimit;
-  const R = 32, C = 2 * Math.PI * R;
-  const col = S.huTimer > 20 ? 'var(--green)' : S.huTimer > 10 ? 'var(--yellow)' : 'var(--pink)';
+  const word   = g.current();
+  const idx    = DECKS.findIndex(d => d.id === g.deck.id);
+  const accent = DECK_ACCENTS[idx >= 0 ? idx : 0];
+  const pct    = S.huTimer / g.timeLimit;
+  const R = 28, C = 2 * Math.PI * R;
+  const col = S.huTimer > 20 ? 'var(--accent-green)' : S.huTimer > 10 ? 'var(--accent-yellow)' : 'var(--accent)';
 
   return `
-  <div class="screen stack-14" style="display:flex;flex-direction:column;gap:14px;">
-    <div class="app-header">
-      <div style="font-family:'Unbounded',sans-serif;font-size:0.72rem;font-weight:900;color:var(--muted);">${deck.emoji} ${deck.name}</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div class="score-row" style="gap:14px;">
+  <div class="screen">
+    <div class="cream">
+      <div class="play-header">
+        <div class="score-row">
           <div class="score-box">
-            <div id="hu-score-got" class="score-num" style="color:var(--green);font-size:1.4rem;">${g.got}</div>
+            <div class="score-num score-num--green" id="hu-score-got">${g.got}</div>
             <div class="score-lbl">Got</div>
           </div>
           <div class="score-box">
-            <div id="hu-score-skip" class="score-num" style="color:var(--muted);font-size:1.4rem;">${g.skipped}</div>
-            <div class="score-lbl">Skip</div>
+            <div class="score-num score-num--muted" id="hu-score-skip">${g.skipped}</div>
+            <div class="score-lbl">Skipped</div>
+          </div>
+          <div class="score-box">
+            <div class="score-num score-num--dark">${g.cards.length - g.index}</div>
+            <div class="score-lbl">Left</div>
           </div>
         </div>
-        <div style="position:relative;width:70px;height:70px;flex-shrink:0;">
-          <svg width="70" height="70" viewBox="0 0 70 70">
-            <circle cx="35" cy="35" r="${R}" fill="none" stroke="var(--surface3)" stroke-width="5"/>
-            <circle id="hu-arc" cx="35" cy="35" r="${R}" fill="none" stroke="${col}" stroke-width="5"
-              stroke-dasharray="${C*pct} ${C}" stroke-dashoffset="${C/4}" stroke-linecap="round"
-              style="transition:stroke-dasharray 1s linear,stroke 0.4s;"/>
+        <div class="timer-ring">
+          <svg width="68" height="68" viewBox="0 0 68 68">
+            <circle cx="34" cy="34" r="${R}" fill="none" stroke="var(--paper-dk)" stroke-width="5"/>
+            <circle id="hu-arc" cx="34" cy="34" r="${R}" fill="none" stroke="${col}" stroke-width="5"
+              stroke-dasharray="${C * pct} ${C}" stroke-dashoffset="${C / 4}" stroke-linecap="round"
+              class="timer-arc"/>
           </svg>
-          <div id="hu-timer-num" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Unbounded',sans-serif;font-size:0.95rem;font-weight:900;">${S.huTimer}</div>
+          <div id="hu-timer-num" class="timer-num timer-num--sm">${S.huTimer}</div>
         </div>
       </div>
-    </div>
 
-    <div class="hu-play-card" id="hu-card"
-      style="background:${deck.bg};border-color:${deck.border};">
-      <div class="hu-play-card-category" style="color:${deck.accent};">${deck.name}</div>
-      <div class="hu-play-card-word" style="color:${deck.accent};">${word}</div>
-      <div class="hu-play-card-hint" style="margin-top:6px;">Hold phone to forehead &amp; tilt!</div>
-    </div>
+      <div class="hu-card" id="hu-card">
+        <div class="tack tack-red tack--lobby-left"></div>
+        <div class="tack tack-blue tack--lobby-right"></div>
+        <div class="tape tape-left"></div>
+        <div class="tape tape-right"></div>
+        <div class="hu-card-category" style="color:${accent};">${g.deck.name}</div>
+        <div class="hu-card-word">${esc(word)}</div>
+        <div class="hu-card-hint">Hold phone to forehead &amp; tilt!</div>
+      </div>
 
-    <div style="display:flex;gap:10px;width:100%;">
-      <button class="btn btn-outline-pink" id="btn-hu-skip" style="flex:1;">
-        ⬆️ Skip
-      </button>
-      <button class="btn btn-green" id="btn-hu-got" style="flex:1.6;">
-        ⬇️ Got It!
-      </button>
-    </div>
+      <div class="tilt-row">
+        <div class="tilt-hint tilt-got">Tilt Back<br>= Got It</div>
+        <div class="tilt-hint tilt-skip">Tilt Fwd<br>= Skip</div>
+      </div>
 
-    <button class="btn btn-ghost btn-sm" id="btn-hu-end">End Round</button>
+      <button class="btn btn-green" id="btn-hu-got">${ICONS.check} Got It!</button>
+      <button class="btn btn-ghost" id="btn-hu-skip">${ICONS.close} Skip</button>
+      <button class="end-link" id="btn-hu-end">End Round</button>
+    </div>
   </div>`;
 }
 
 function vHuResult() {
   const g = S.huSession;
   if (!g) return '';
-  const deck = g.deck;
 
   return `
-  <div class="screen stack-16" style="display:flex;flex-direction:column;gap:16px;">
-    <div class="app-header">
-      <a href="index.html" class="app-logo">PartyPocket</a>
-      <div style="font-size:0.72rem;color:var(--muted);font-weight:700;font-family:'Unbounded',sans-serif;">RESULTS</div>
-    </div>
+  <div class="screen">
+    <nav class="nav-bar">
+      <div class="nav-title">Party Pocket</div>
+      <span class="nav-label">RESULTS</span>
+    </nav>
 
-    <div class="result-hero result-win text-center">
-      <span class="result-emoji-big">${deck.emoji}</span>
-      <div class="result-title" style="font-size:1.4rem;">${g.got} Got It!</div>
-      <div class="result-desc">${g.skipped} skipped • ${deck.name}</div>
-    </div>
+    <div class="cream cream--top">
+      <div class="panel">
+        <div class="hu-result-score">${g.got}</div>
+        <div class="hu-result-label">GOT IT</div>
+        <div class="hu-result-sub">${g.skipped} skipped &middot; ${g.deck.name}</div>
+      </div>
 
-    <div class="card stack-8" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;">
-      <div class="section-label">Card history</div>
-      ${g.history.map(h => `
-        <div class="history-row">
-          <span style="font-size:1rem;">${h.result === 'got' ? '✅' : '⏭️'}</span>
-          <span style="font-weight:700;${h.result === 'got' ? 'color:var(--green)' : 'color:var(--muted2)'};">${esc(h.word)}</span>
-        </div>
-      `).join('')}
-    </div>
+      <div class="panel panel--scroll">
+        <span class="section-label">Card history</span>
+        ${g.history.map(h => `
+          <div class="history-row">
+            <span class="${h.result === 'got' ? 'history-got' : 'history-skip'}">${ICONS[h.result === 'got' ? 'check' : 'close']}</span>
+            <span class="${h.result === 'got' ? 'history-word--got' : 'history-word--skip'}">${esc(h.word)}</span>
+          </div>
+        `).join('')}
+      </div>
 
-    <div style="display:flex;gap:10px;width:100%;">
-      <button class="btn btn-ghost" id="btn-back" style="flex:1;">← Decks</button>
-      <button class="btn btn-green" id="btn-hu-replay" style="flex:1.5;">Play Again! 🔄</button>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="btn-back">${ICONS.back} Decks</button>
+        <button class="btn btn-green btn--wide" id="btn-hu-replay">${ICONS.arrow} Play Again</button>
+      </div>
     </div>
   </div>`;
 }
@@ -568,55 +852,86 @@ function vHuResult() {
 // EVENT BINDING
 // ─────────────────────────────────────────────
 function bind() {
-  // Home
   on('btn-create', () => doCreate());
-  on('btn-join', () => doJoin());
+  on('btn-join',   () => doJoin());
   onKey('inp-name', 'Enter', () => doCreate());
   onKey('inp-code', 'Enter', () => doJoin());
 
-  // Lobby
+  on('btn-back-home', () => go('home'));
   on('btn-back', () => leaveRoom());
+
+  document.querySelectorAll('[data-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('chip--active'));
+      btn.classList.add('chip--active');
+    });
+  });
+
+  document.querySelectorAll('[data-launch]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const game = el.dataset.launch;
+      if (game === 'headsup') { go('hu-decks'); return; }
+      if (game === 'spy') { S.selectedGame = 'spy'; go('setup'); return; }
+      toast('Coming soon!');
+    });
+  });
   on('btn-pick-game', () => {
-    if (S.isHost) S.room?.send({ type: 'GOTO', screen: 'game-select' });
-    go('game-select');
+    if (!S.isHost) return;
+    if (S.players.length < 3) { toast('Need 3+ agents for Secret Agent!'); return; }
+    S.room?.send({ type: 'GOTO', screen: 'spy-role' });
+    go('spy-role');
   });
   on('btn-copy-code', () => {
-    navigator.clipboard?.writeText(S.roomCode).then(() => toast('Code copied! 📋')).catch(() => toast('Code: ' + S.roomCode));
+    navigator.clipboard?.writeText(S.roomCode)
+      .then(() => toast('Code copied!'))
+      .catch(() => toast('Code: ' + S.roomCode));
   });
   on('btn-copy-link', () => {
     const url = `${location.origin}${location.pathname}?join=${S.roomCode}`;
-    navigator.clipboard?.writeText(url).then(() => toast('Invite link copied! 🔗')).catch(() => toast('Code: ' + S.roomCode));
+    navigator.clipboard?.writeText(url)
+      .then(() => toast('Invite link copied!'))
+      .catch(() => toast('Code: ' + S.roomCode));
   });
 
-  // Game select
   on('btn-to-lobby', () => go('lobby'));
-  document.querySelectorAll('.game-tile:not(.game-tile-coming)[data-game]').forEach(t => {
+  document.querySelectorAll('.game-card:not(.game-card--soon)[data-game]').forEach(t => {
     t.addEventListener('click', () => launchGame(t.dataset.game));
   });
 
-  // Spy
-  on('btn-spy-start', () => {
-    S.room?.send({ type: 'SPY_DISCUSS' });
-    spyDiscuss();
-  });
-  on('btn-spy-vote', () => {
-    S.room?.send({ type: 'SPY_PHASE', phase: 'vote' });
-    go('spy-vote');
-  });
-  on('btn-spy-reveal', () => spyReveal());
-  on('btn-spy-again', () => {
-    S.room?.send({ type: 'GOTO', screen: 'game-select' });
-    go('game-select');
-  });
-  on('btn-to-game-select', () => {
-    S.room?.send({ type: 'GOTO', screen: 'game-select' });
-    go('game-select');
-  });
-  document.querySelectorAll('.vote-option[data-vote]').forEach(b => {
-    b.addEventListener('click', () => castVote(b.dataset.vote));
+  on('btn-spy-start', () => { startSpy(); spyDiscuss(); });
+  on('btn-spy-vote',  () => { S.spySelectedVote = null; S.room?.send({ type: 'SPY_PHASE', phase: 'vote' }); go('spy-vote'); });
+  on('btn-spy-again',      () => { S.room?.send({ type: 'GOTO', screen: 'lobby' }); go('lobby'); });
+  on('btn-to-game-select', () => { S.room?.send({ type: 'GOTO', screen: 'lobby' }); go('lobby'); });
+  on('btn-sa-leave', () => leaveRoom());
+  on('btn-end-mission', () => {
+    clearInterval(S.spyTimerInt);
+    S.room?.send({ type: 'GOTO', screen: 'lobby' });
+    go('lobby');
   });
 
-  // Heads Up
+  document.querySelectorAll('.sa-vote-option[data-vote]').forEach(b => {
+    b.addEventListener('click', () => {
+      if (S.spyVotes[S.room?.myId]) return;
+      S.spySelectedVote = b.dataset.vote;
+      render();
+    });
+  });
+  on('btn-confirm-vote', () => {
+    if (S.spySelectedVote) castVote(S.spySelectedVote);
+  });
+  document.querySelectorAll('.sa-loc-btn[data-guess]').forEach(b => {
+    b.addEventListener('click', () => spyGuessLocation(b.dataset.guess));
+  });
+  document.querySelectorAll('[data-cross]').forEach(el => {
+    el.addEventListener('click', () => {
+      const name = el.dataset.cross;
+      if (S.spyCrossed.has(name)) S.spyCrossed.delete(name);
+      else S.spyCrossed.add(name);
+      el.classList.toggle('sa-loc-crossed');
+    });
+  });
+
   document.querySelectorAll('[data-deck]').forEach(d => {
     d.addEventListener('click', () => startHeadsUp(d.dataset.deck));
   });
@@ -647,7 +962,7 @@ async function doCreate() {
   if (!name) { toast('Enter your name first!'); return; }
   S.myName = name;
   const btn = document.getElementById('btn-create');
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
   try {
     const room = new RoomManager(onMsg, onPlayers, onDisconn);
     S.room = room; S.isHost = true;
@@ -656,7 +971,7 @@ async function doCreate() {
     go('lobby');
   } catch(e) {
     toast(e.message || 'Could not create room');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<span style="font-size:1rem;">🏠</span> Create a Room'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = `${ICONS.home} Create a Room`; }
   }
 }
 
@@ -667,7 +982,7 @@ async function doJoin() {
   if (!code || code.length < 4) { toast('Enter the 4-letter room code!'); return; }
   S.myName = name;
   const btn = document.getElementById('btn-join');
-  if (btn) { btn.disabled = true; btn.textContent = 'Joining…'; }
+  if (btn) btn.disabled = true;
   try {
     const room = new RoomManager(onMsg, onPlayers, onDisconn);
     S.room = room; S.isHost = false; S.roomCode = code;
@@ -675,7 +990,7 @@ async function doJoin() {
     go('lobby');
   } catch(e) {
     toast(e.message || 'Could not join room');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<span style="font-size:1rem;">🚀</span> Join Room'; }
+    if (btn) btn.disabled = false;
     S.room?.destroy(); S.room = null;
   }
 }
@@ -693,33 +1008,38 @@ function leaveRoom() {
 function onMsg(msg) {
   switch (msg.type) {
     case 'GOTO':
+      if (msg.screen === 'lobby') {
+        S.spyCrossed = new Set();
+        S.spyVotes = {};
+        S.spySelectedVote = null;
+        clearInterval(S.spyTimerInt);
+      }
       go(msg.screen);
       break;
-
     case 'SPY_START':
       if (!S.isHost) {
-        const myId = S.room.myId;
-        S.spyAssignments = msg.assignments;
-        S.spyLocation = msg.location;
-        S.spyMyAssignment = msg.assignments[myId];
-        go('spy-role');
+        S.spyAssignments  = msg.assignments;
+        S.spyLocation     = msg.location;
+        S.spyMyAssignment = msg.assignments[S.room.myId];
+        S.spyCrossed      = new Set();
+        spyDiscuss();
       }
       break;
-
-    case 'SPY_DISCUSS':
-      if (!S.isHost) spyDiscuss();
-      break;
-
+    case 'SPY_DISCUSS': if (!S.isHost) spyDiscuss(); break;
     case 'SPY_PHASE':
-      if (msg.phase === 'vote' && !S.isHost) go('spy-vote');
+      if (msg.phase === 'vote' && !S.isHost) { S.spySelectedVote = null; go('spy-vote'); }
+      if (msg.phase === 'guess-loc' && !S.isHost) go('spy-guess-loc');
       break;
-
     case 'SPY_VOTE':
       S.spyVotes[msg.voterId] = msg.targetId;
+      if (S.isHost && Object.keys(S.spyVotes).length === S.players.length) {
+        autoReveal();
+      } else if (S.screen === 'spy-vote') {
+        render();
+      }
       break;
-
     case 'SPY_RESULT':
-      S.spyResult = msg.result;
+      S.spyResult   = msg.result;
       S.spyLocation = msg.location;
       clearInterval(S.spyTimerInt);
       go('spy-result');
@@ -732,21 +1052,14 @@ function onPlayers(players) {
   if (S.screen === 'lobby') render();
 }
 
-function onDisconn(msg) {
-  toast(msg);
-}
+function onDisconn(msg) { toast(msg); }
 
 // ─────────────────────────────────────────────
 // GAME LAUNCHERS
 // ─────────────────────────────────────────────
 function launchGame(id) {
   if (!S.isHost) return;
-  if (id === 'spy') {
-    if (S.players.length < 3) { toast('Need 3+ players for Secret Agent!'); return; }
-    startSpy();
-  } else if (id === 'headsup') {
-    go('hu-decks');
-  }
+  if (id === 'headsup') go('hu-decks');
 }
 
 // ─────────────────────────────────────────────
@@ -754,19 +1067,15 @@ function launchGame(id) {
 // ─────────────────────────────────────────────
 function startSpy() {
   const { location, assignments } = generateAssignments(S.players);
-  S.spyAssignments = assignments;
-  S.spyLocation = location;
-  S.spyVotes = {};
-
-  if (S.isHost) {
-    const myId = S.room.myId;
-    S.spyMyAssignment = assignments[myId];
-    // Send each player their assignment directly
-    Object.entries(S.room.connections).forEach(([peerId, conn]) => {
-      conn.send({ type: 'SPY_START', assignments, location });
-    });
-    go('spy-role');
-  }
+  S.spyAssignments  = assignments;
+  S.spyLocation     = location;
+  S.spyVotes        = {};
+  S.spySelectedVote = null;
+  S.spyCrossed      = new Set();
+  S.spyMyAssignment = assignments[S.room.myId];
+  Object.values(S.room.connections).forEach(conn => {
+    conn.send({ type: 'SPY_START', assignments, location });
+  });
 }
 
 function spyDiscuss() {
@@ -774,19 +1083,15 @@ function spyDiscuss() {
   clearInterval(S.spyTimerInt);
   S.spyTimerInt = setInterval(() => {
     S.spyTimer = Math.max(0, S.spyTimer - 1);
-    // Patch timer in DOM without full re-render
     const numEl = document.getElementById('timer-num');
     const arcEl = document.getElementById('timer-arc');
     if (numEl) {
-      const m = Math.floor(S.spyTimer / 60);
-      const s = String(S.spyTimer % 60).padStart(2, '0');
-      numEl.textContent = `${m}:${s}`;
+      numEl.textContent = `${Math.floor(S.spyTimer / 60)}:${String(S.spyTimer % 60).padStart(2, '0')}`;
     }
     if (arcEl) {
-      const R = 38, C = 2 * Math.PI * R;
-      const pct = S.spyTimer / 480;
-      arcEl.setAttribute('stroke-dasharray', `${C * pct} ${C}`);
-      arcEl.setAttribute('stroke', S.spyTimer > 120 ? 'var(--cyan)' : S.spyTimer > 30 ? 'var(--yellow)' : 'var(--pink)');
+      const R = 52, C = 2 * Math.PI * R;
+      arcEl.setAttribute('stroke-dasharray', `${C * S.spyTimer / 480} ${C}`);
+      arcEl.setAttribute('stroke', S.spyTimer > 120 ? '#cc2222' : S.spyTimer > 30 ? 'var(--accent-yellow)' : '#ff4444');
     }
     if (S.spyTimer === 0) {
       clearInterval(S.spyTimerInt);
@@ -799,19 +1104,45 @@ function spyDiscuss() {
 
 function castVote(targetId) {
   const myId = S.room?.myId;
-  if (!myId) return;
+  if (!myId || !targetId || S.spyVotes[myId]) return;
   S.spyVotes[myId] = targetId;
+  S.spySelectedVote = null;
   S.room?.send({ type: 'SPY_VOTE', voterId: myId, targetId });
-  render();
+  if (S.isHost && Object.keys(S.spyVotes).length === S.players.length) {
+    autoReveal();
+  } else {
+    render();
+  }
 }
 
-function spyReveal() {
+function spyGuessLocation(guessName) {
+  if (!S.spyMyAssignment?.isSpy) return;
+  const correct = S.spyLocation?.name === guessName;
+  const result = getVoteResult(S.spyVotes, S.spyAssignments);
+  result.spyGuessedLocation = correct;
+  result.caughtSpy = true; // spy was caught by vote, now guessing
+  S.spyResult = result;
+  clearInterval(S.spyTimerInt);
+  S.room?.send({ type: 'SPY_RESULT', result, location: S.spyLocation });
+  go('spy-result');
+}
+
+function autoReveal() {
   if (!S.isHost) return;
   const result = getVoteResult(S.spyVotes, S.spyAssignments);
-  S.spyResult = result;
-  S.room?.send({ type: 'SPY_RESULT', result, location: S.spyLocation });
+  result.spyGuessedLocation = false;
   clearInterval(S.spyTimerInt);
-  go('spy-result');
+
+  if (result.caughtSpy) {
+    // Spy was correctly identified — give them one chance to guess the location
+    S.room?.send({ type: 'SPY_PHASE', phase: 'guess-loc' });
+    go('spy-guess-loc');
+  } else {
+    // Wrong person voted — spy wins immediately
+    S.spyResult = result;
+    S.room?.send({ type: 'SPY_RESULT', result, location: S.spyLocation });
+    go('spy-result');
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -819,19 +1150,18 @@ function spyReveal() {
 // ─────────────────────────────────────────────
 function startHeadsUp(deckId) {
   S.huSession = new HeadsUpSession(deckId);
-  S.huTimer = S.huSession.timeLimit;
+  S.huTimer   = S.huSession.timeLimit;
   clearInterval(S.huTimerInt);
-  go('hu-play');
-  // Tilt controls — remove any previous listener before adding a fresh one
   if (window._huTilt) { window.removeEventListener('deviceorientation', window._huTilt); delete window._huTilt; }
+  go('hu-play');
   if (window.DeviceOrientationEvent) {
     let lastTilt = 0;
-    window._huTilt = (e) => {
+    window._huTilt = e => {
       const b = e.beta;
       if (b === null) return;
       const now = Date.now();
-      if (now - lastTilt < 600) return; // debounce
-      if (b > 55) { lastTilt = now; huGot(); }
+      if (now - lastTilt < 600) return;
+      if (b > 55)  { lastTilt = now; huGot(); }
       else if (b < -25) { lastTilt = now; huSkip(); }
     };
     window.addEventListener('deviceorientation', window._huTilt);
@@ -842,9 +1172,9 @@ function startHeadsUp(deckId) {
     const a = document.getElementById('hu-arc');
     if (n) n.textContent = S.huTimer;
     if (a) {
-      const R = 32, C = 2 * Math.PI * R;
+      const R = 28, C = 2 * Math.PI * R;
       a.setAttribute('stroke-dasharray', `${C * S.huTimer / S.huSession.timeLimit} ${C}`);
-      a.setAttribute('stroke', S.huTimer > 20 ? 'var(--green)' : S.huTimer > 10 ? 'var(--yellow)' : 'var(--pink)');
+      a.setAttribute('stroke', S.huTimer > 20 ? 'var(--accent-green)' : S.huTimer > 10 ? 'var(--accent-yellow)' : 'var(--accent)');
     }
     if (S.huTimer === 0) huEnd();
   }, 1000);
@@ -855,10 +1185,10 @@ function huGot() {
   S.huSession.markGot();
   flash('hu-card', 'hu-flash-got');
   if (S.huSession.isDone()) { huEnd(); return; }
-  const wEl = document.querySelector('.hu-play-card-word');
+  const wEl = document.querySelector('.hu-card-word');
   if (wEl) wEl.textContent = S.huSession.current() || '';
-  const gotEl = document.getElementById('hu-score-got');
-  if (gotEl) gotEl.textContent = S.huSession.got;
+  const el = document.getElementById('hu-score-got');
+  if (el) el.textContent = S.huSession.got;
 }
 
 function huSkip() {
@@ -866,10 +1196,10 @@ function huSkip() {
   S.huSession.markSkip();
   flash('hu-card', 'hu-flash-skip');
   if (S.huSession.isDone()) { huEnd(); return; }
-  const wEl = document.querySelector('.hu-play-card-word');
+  const wEl = document.querySelector('.hu-card-word');
   if (wEl) wEl.textContent = S.huSession.current() || '';
-  const skipEl = document.getElementById('hu-score-skip');
-  if (skipEl) skipEl.textContent = S.huSession.skipped;
+  const el = document.getElementById('hu-score-skip');
+  if (el) el.textContent = S.huSession.skipped;
 }
 
 function huEnd() {
@@ -888,10 +1218,7 @@ function flash(id, cls) {
 // ─────────────────────────────────────────────
 // UTILS
 // ─────────────────────────────────────────────
-function go(screen) {
-  S.screen = screen;
-  render();
-}
+function go(screen) { S.screen = screen; render(); }
 
 function toast(msg) {
   const wrap = document.getElementById('toasts');
@@ -908,16 +1235,10 @@ function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-const AV_BKGS = [
-  'linear-gradient(135deg,#ff2d78,#b060ff)',
-  'linear-gradient(135deg,#00f0ff,#007799)',
-  'linear-gradient(135deg,#00ff88,#007744)',
-  'linear-gradient(135deg,#ffe600,#aa9900)',
-  'linear-gradient(135deg,#ff7a30,#aa4400)',
-  'linear-gradient(135deg,#b060ff,#6600cc)',
-];
-function avBg(emoji) {
-  return AV_BKGS[(emoji?.codePointAt(0) || 0) % AV_BKGS.length];
+const AV_CLASSES = ['av-0','av-1','av-2','av-3','av-4','av-5'];
+function avClass(name) {
+  const n = String(name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return AV_CLASSES[n % AV_CLASSES.length];
 }
 
 // ─────────────────────────────────────────────
@@ -925,9 +1246,8 @@ function avBg(emoji) {
 // ─────────────────────────────────────────────
 render();
 
-// Auto-fill code from URL
 const _params = new URLSearchParams(location.search);
-const _code = _params.get('join');
+const _code   = _params.get('join');
 if (_code) {
   setTimeout(() => {
     const el = document.getElementById('inp-code');
