@@ -27,6 +27,12 @@ const S = {
   spyTimerInt: null,
   spyCrossed: new Set(),
   huSession: null,
+  huSelectedDeck: null,
+  huOpenFilter: null,
+  huAgeFilter: 'all',
+  huDiffFilter: 'all',
+  huPhase: 'wait',
+  huCountdown: 3,
   huTimer: 60,
   huTimerInt: null,
 };
@@ -38,11 +44,11 @@ const $app = document.getElementById('app');
 // ─────────────────────────────────────────────
 function render() {
   $app.innerHTML = `
-    <div class="rotate-hint">
+    ${S.screen !== 'hu-play' ? `<div class="rotate-hint">
       <div>${ICONS.person}</div>
       <div class="rotate-hint-title">Rotate your phone</div>
       <div class="rotate-hint-sub">Game Line works best in portrait mode</div>
-    </div>
+    </div>` : ''}
     ${view()}
     <div class="toasts" id="toasts"></div>
   `;
@@ -72,11 +78,10 @@ function view() {
 // ─────────────────────────────────────────────
 
 function vHome() {
-  const glcard = ({ game, bg, imgContent, title, desc, players, time, soon }) => `
-    <div class="glcard" ${!soon ? `data-launch="${game}"` : ''}>
+  const glcard = ({ game, bg, imgContent, title, desc, players, time, soon, device }) => `
+    <div class="glcard" data-device="${device || 'multi'}" ${!soon ? `data-launch="${game}"` : ''}>
       <div class="glcard__img" style="background:${bg};">
         ${imgContent}
-        <div class="glcard__fav">${ICONS.star}</div>
         ${soon ? `<div class="glcard__soon">COMING SOON</div>` : ''}
       </div>
       <div class="glcard__body">
@@ -179,20 +184,21 @@ function vHome() {
     <div style="height:12px;"></div>
 
     <div class="filter-chips">
-      <button class="chip chip--active" data-filter="multi">${ICONS.people} Multi Device</button>
+      <button class="chip chip--active" data-filter="all">${ICONS.controller} All</button>
+      <button class="chip" data-filter="multi">${ICONS.people} Multi Device</button>
       <button class="chip" data-filter="single">${ICONS.person} Single Device</button>
     </div>
 
     <div style="height:16px;"></div>
 
     <div class="game-list">
-      ${glcard({ game:'spy',     bg:'#F0E8D8', title:'Secret Agent',    desc:'Find the spy before time runs out.',              players:'3-12 players', time:'15-30 min', soon:false,
+      ${glcard({ game:'spy',     bg:'#F0E8D8', title:'Secret Agent',    desc:'Find the spy before time runs out.',              players:'3-12 players', time:'15-30 min', soon:false, device:'multi',
         imgContent:`<img src="img/card-secret-agent.png" class="glcard-img-fill" draggable="false"/>` })}
-      ${glcard({ game:'gaslight', bg:'#2a3a2a', title:'Gaslight or Burn', desc:'Lie through your teeth or get called out.',         players:'3+ players',  time:'15-30 min', soon:false,
+      ${glcard({ game:'gaslight', bg:'#2a3a2a', title:'Gaslight or Burn', desc:'Lie through your teeth or get called out.',         players:'3+ players',  time:'15-30 min', soon:false, device:'single',
         imgContent:`<img src="img/gaslight-or-burn.png" class="glcard-img-fill" draggable="false"/>` })}
-      ${glcard({ game:'headsup', bg:'#1A6BE8', title:'Flip Up',           desc:'Hold your phone to your forehead and guess!',       players:'2+ players',  time:'15 min',    soon:false,
+      ${glcard({ game:'headsup', bg:'#1A6BE8', title:'Flip Up',           desc:'Hold your phone to your forehead and guess!',       players:'2+ players',  time:'15 min',    soon:false, device:'single',
         imgContent:`<img src="img/card-flipup.png" class="glcard-img-fill" draggable="false"/>` })}
-      ${glcard({ game:'tod',     bg:'#D4B8F0', title:'Truth or Dare',     desc:'Take turns choosing truth or dare. Dare to play?',  players:'3+ players',  time:'15-30 min', soon:true,
+      ${glcard({ game:'tod',     bg:'#D4B8F0', title:'Truth or Dare',     desc:'Take turns choosing truth or dare. Dare to play?',  players:'3+ players',  time:'15-30 min', soon:true,  device:'single',
         imgContent:`<div style="position:absolute;inset:0;width:100%;height:100%;"><img src="img/truth or dare.png" class="glcard-img-fill" alt="Truth or Dare" draggable="false" style="object-fit:cover;width:100%;height:100%;"/></div>` })}
     </div>
 
@@ -275,7 +281,7 @@ function vSetup() {
   <div class="screen">
     <nav class="nav-bar">
       <button class="nav-back" id="btn-back-home">${ICONS.back} Back</button>
-      <div class="nav-title--center">Party Pocket</div>
+      <div class="nav-title--center">Game Line</div>
     </nav>
     <div class="setup-form">
       <div class="setup-game-badge" style="background:${cfg.color};">
@@ -308,7 +314,7 @@ function vLobby() {
   <div class="screen">
     <nav class="nav-bar">
       <button class="nav-back" id="btn-back">${ICONS.back} Leave</button>
-      <div class="nav-title--center">Party Pocket</div>
+      <div class="nav-title--center">Game Line</div>
     </nav>
 
     <div class="cork-strip cork-strip--lobby">
@@ -766,62 +772,146 @@ function vSpyResult() {
   </div>`;
 }
 
-// ─── HEADS UP ───
-
-const DECK_ACCENTS  = ['#E8481A','#1A6BE8','#8B3FCF','#1AADAA','#1DAA5C','#F5A623'];
-const DECK_TACKS    = ['red','blue','purple','green','green','yellow'];
-const DECK_ICONS    = ['star','controller','people','link','flame','headphones'];
+// ─── FLIP UP ───
 
 function vHuDecks() {
+  const filtered = DECKS.filter(d => {
+    if (S.huAgeFilter  !== 'all' && d.age       !== S.huAgeFilter)  return false;
+    if (S.huDiffFilter !== 'all' && d.difficulty !== S.huDiffFilter) return false;
+    return true;
+  });
+  const featured = filtered[0] || null;
+  const others   = filtered.slice(1);
+  const sel      = S.huSelectedDeck ? DECKS.find(d => d.id === S.huSelectedDeck) : null;
+
+  const ageLbl  = S.huAgeFilter  === 'all' ? 'ALL AGES'         : '18+';
+  const diffLbl = S.huDiffFilter === 'all' ? 'ALL DIFFICULTIES' : S.huDiffFilter.toUpperCase();
+
   return `
-  <div class="screen">
-    <nav class="nav-bar">
-      <button class="nav-back" id="btn-back">${ICONS.back} Back</button>
-      <div class="nav-title--center">Heads Up!</div>
-    </nav>
+  <div class="fu-screen">
 
-    <div class="cork-strip cork-strip--sm">
-      <div class="panel panel--pinned">
-        <div class="tack tack-red tack--top-center"></div>
-        <div class="cork-label">Choose a Deck</div>
+    <div class="fu-header">
+      <img src="img/Flip Up Header.png" class="fu-header-bg" alt="" draggable="false"/>
+      <div class="fu-header-content">
+        <button class="fu-back-btn" id="btn-back">${ICONS.back}</button>
       </div>
     </div>
 
-    <div class="cream cream--top">
-      <div class="sticky sticky--rotated-neg">
-        <div class="tack tack-yellow tack--sticky-left"></div>
-        <div class="tack tack-yellow tack--sticky-right"></div>
-        <div class="sticky-title">How to play</div>
-        <div class="sticky-body">
-          Hold the phone to your forehead<br>
-          Friends describe the word — don't say it!<br>
-          Tilt back = Got It &nbsp;&nbsp; Tilt forward = Skip
+    ${S.huOpenFilter ? `<div class="fu-filter-bg" id="btn-fu-filter-close"></div>` : ''}
+    <div class="fu-filters-wrap">
+      <div class="fu-filters">
+        <div class="fu-pill fu-pill--static">${ICONS.people} 3+ PLAYERS</div>
+        <div class="fu-pill ${S.huAgeFilter  !== 'all' ? 'fu-pill--on' : ''}" id="btn-fu-filter-age" >${ageLbl}  ▾</div>
+        <div class="fu-pill ${S.huDiffFilter !== 'all' ? 'fu-pill--on' : ''}" id="btn-fu-filter-diff">${diffLbl} ▾</div>
+      </div>
+
+      ${S.huOpenFilter === 'age' ? `
+      <div class="fu-dropdown">
+        <div class="fu-drop-opt ${S.huAgeFilter === 'all' ? 'fu-drop-opt--sel' : ''}" data-ftype="age" data-fval="all">ALL AGES</div>
+        <div class="fu-drop-opt ${S.huAgeFilter === '18+' ? 'fu-drop-opt--sel' : ''}" data-ftype="age" data-fval="18+">18+</div>
+      </div>` : ''}
+
+      ${S.huOpenFilter === 'diff' ? `
+      <div class="fu-dropdown">
+        <div class="fu-drop-opt ${S.huDiffFilter === 'all'    ? 'fu-drop-opt--sel' : ''}" data-ftype="diff" data-fval="all">ALL DIFFICULTIES</div>
+        <div class="fu-drop-opt ${S.huDiffFilter === 'easy'   ? 'fu-drop-opt--sel' : ''}" data-ftype="diff" data-fval="easy">EASY</div>
+        <div class="fu-drop-opt ${S.huDiffFilter === 'medium' ? 'fu-drop-opt--sel' : ''}" data-ftype="diff" data-fval="medium">MEDIUM</div>
+        <div class="fu-drop-opt ${S.huDiffFilter === 'hard'   ? 'fu-drop-opt--sel' : ''}" data-ftype="diff" data-fval="hard">HARD</div>
+      </div>` : ''}
+    </div>
+
+    <div class="fu-body">
+
+      ${!featured ? `
+      <div class="fu-empty">
+        <div class="fu-empty-title">No decks match</div>
+        <div class="fu-empty-sub">Try a different filter</div>
+      </div>` : `
+
+      <div class="fu-label">FEATURED</div>
+      <div class="fu-featured" data-deck="${featured.id}" style="background:${featured.bg};border-color:${featured.border}">
+        <div class="fu-featured-art">${featured.emoji}</div>
+        <div class="fu-featured-badge">FEATURED</div>
+        <div class="fu-featured-text">
+          <div class="fu-featured-name">${esc(featured.name).toUpperCase()}</div>
+          <div class="fu-featured-sub">${esc(featured.subtitle)}</div>
         </div>
+        <div class="fu-count-pill">${featured.cards.length} CARDS</div>
       </div>
 
-      <div class="game-grid game-grid--decks">
-        ${DECKS.map((d, i) => {
-          const accent = DECK_ACCENTS[i % DECK_ACCENTS.length];
-          const tack   = DECK_TACKS[i % DECK_TACKS.length];
-          const icon   = DECK_ICONS[i % DECK_ICONS.length];
-          const side   = i % 2 === 0 ? 'left' : 'right';
-          return `
-          <div class="game-card deck-card game-card--${side}" data-deck="${d.id}">
-            <div class="tack tack-${tack} tack--top-center"></div>
-            <div class="game-card-strip" style="background:${accent};"></div>
-            <div class="game-card-name">${d.name}</div>
-            <div class="game-card-icon" style="color:${accent};">${ICONS[icon]}</div>
-            <div class="game-card-players">${d.cards.length} cards</div>
-          </div>`;
-        }).join('')}
-      </div>
+      ${others.length ? `<div class="fu-label">ALL DECKS</div>
+      <div class="fu-grid">
+        ${others.map(d => `
+          <div class="fu-card" data-deck="${d.id}" style="background:${d.bg};border-color:${d.border}">
+            <div class="fu-card-art">${d.emoji}</div>
+            <div class="fu-card-name">${esc(d.name).toUpperCase()}</div>
+            <div class="fu-card-sub">${esc(d.subtitle)}</div>
+            <div class="fu-card-count">${d.cards.length} CARDS</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+      `}
+
     </div>
+
+    ${sel ? `
+    <div class="fu-overlay" id="btn-fu-close"></div>
+    <div class="fu-modal" style="--deck-accent:${sel.accent}">
+      <div class="fu-modal-header" style="background:${sel.bg}">
+        <div class="fu-modal-art">${sel.emoji}</div>
+        <div class="fu-modal-name">${esc(sel.name).toUpperCase()}</div>
+        <div class="fu-modal-sub">${esc(sel.subtitle)}</div>
+        <div class="fu-modal-count">${sel.cards.length} CARDS</div>
+      </div>
+      <div class="fu-modal-body">
+        <div class="fu-modal-how">
+          <div class="fu-modal-how-title">HOW TO PLAY</div>
+          <div class="fu-modal-how-row">${ICONS.person}<span>Hold phone up to your forehead</span></div>
+          <div class="fu-modal-how-row">${ICONS.people}<span>Friends describe the word — don't say it!</span></div>
+          <div class="fu-modal-how-row">${ICONS.check}<span>Tilt down = Got It</span></div>
+          <div class="fu-modal-how-row">${ICONS.close}<span>Tilt up = Skip</span></div>
+        </div>
+        <button class="fu-play-btn" id="btn-fu-play">${ICONS.arrow} PLAY DECK</button>
+        <button class="fu-cancel-btn" id="btn-fu-close2">Choose a different deck</button>
+      </div>
+    </div>` : ''}
+
   </div>`;
 }
 
 function vHuPlay() {
   const g = S.huSession;
-  if (!g || g.isDone() || S.huTimer <= 0) {
+
+  // ── Phase 1: wait for landscape ───────────────
+  if (!g || S.huPhase === 'wait') {
+    return `
+    <div class="hu-orient-screen">
+      <button class="hu-orient-back" id="btn-back">${ICONS.back}</button>
+      <div class="hu-orient-visual">
+        <svg viewBox="0 0 110 80" fill="none" class="hu-orient-svg">
+          <rect x="36" y="8" width="38" height="64" rx="7" stroke="rgba(255,255,255,0.75)" stroke-width="2.5" fill="rgba(255,255,255,0.06)"/>
+          <circle cx="55" cy="64" r="3.5" fill="rgba(255,255,255,0.45)"/>
+          <rect x="43" y="15" width="24" height="14" rx="2" fill="rgba(255,255,255,0.1)"/>
+          <path d="M 8 52 A 38 38 0 0 1 102 52" stroke="rgba(255,255,255,0.55)" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="6 5"/>
+          <polygon points="96,43 103,52 94,56" fill="rgba(255,255,255,0.6)"/>
+        </svg>
+      </div>
+      <div class="hu-orient-title">Rotate Your Phone</div>
+      <div class="hu-orient-sub">Turn sideways to start the countdown</div>
+    </div>`;
+  }
+
+  // ── Phase 2: countdown ────────────────────────
+  if (S.huPhase === 'countdown') {
+    return `
+    <div class="hu-countdown-screen">
+      <div class="hu-cd-label">GET READY</div>
+      <div id="hu-cd-num" class="hu-cd-num">${S.huCountdown}</div>
+    </div>`;
+  }
+
+  // ── Time's up ─────────────────────────────────
+  if (g.isDone() || S.huTimer <= 0) {
     return `
     <div class="screen screen--centered">
       <div class="result-icon result-icon--win">${ICONS.star}</div>
@@ -832,15 +922,15 @@ function vHuPlay() {
     </div>`;
   }
 
+  // ── Phase 3: playing ──────────────────────────
   const word   = g.current();
-  const idx    = DECKS.findIndex(d => d.id === g.deck.id);
-  const accent = DECK_ACCENTS[idx >= 0 ? idx : 0];
+  const accent = g.deck.accent;
   const pct    = S.huTimer / g.timeLimit;
   const R = 28, C = 2 * Math.PI * R;
   const col = S.huTimer > 20 ? 'var(--accent-green)' : S.huTimer > 10 ? 'var(--accent-yellow)' : 'var(--accent)';
 
   return `
-  <div class="screen">
+  <div class="screen hu-play-screen">
     <div class="cream">
       <div class="play-header">
         <div class="score-row">
@@ -875,16 +965,14 @@ function vHuPlay() {
         <div class="tape tape-right"></div>
         <div class="hu-card-category" style="color:${accent};">${g.deck.name}</div>
         <div class="hu-card-word">${esc(word)}</div>
-        <div class="hu-card-hint">Hold phone to forehead &amp; tilt!</div>
+        <div class="hu-card-hint">Hold to forehead — friends describe!</div>
       </div>
 
       <div class="tilt-row">
-        <div class="tilt-hint tilt-got">Tilt Back<br>= Got It</div>
-        <div class="tilt-hint tilt-skip">Tilt Fwd<br>= Skip</div>
+        <div class="tilt-hint tilt-skip">↑ Tilt Up = Skip</div>
+        <div class="tilt-hint tilt-got">↓ Tilt Down = Got It</div>
       </div>
 
-      <button class="btn btn-green" id="btn-hu-got">${ICONS.check} Got It!</button>
-      <button class="btn btn-ghost" id="btn-hu-skip">${ICONS.close} Skip</button>
       <button class="end-link" id="btn-hu-end">End Round</button>
     </div>
   </div>`;
@@ -897,7 +985,7 @@ function vHuResult() {
   return `
   <div class="screen">
     <nav class="nav-bar">
-      <div class="nav-title">Party Pocket</div>
+      <div class="nav-title">Game Line</div>
       <span class="nav-label">RESULTS</span>
     </nav>
 
@@ -942,12 +1030,21 @@ function bind() {
   on('btn-back-home', () => go('home'));
   on('btn-back', () => leaveRoom());
 
-  document.querySelectorAll('[data-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('chip--active'));
-      btn.classList.add('chip--active');
+  const applyFilter = (filter) => {
+    document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('chip--active'));
+    document.querySelector(`[data-filter="${filter}"]`)?.classList.add('chip--active');
+    document.querySelectorAll('.glcard').forEach(card => {
+      card.style.display = (filter === 'all' || card.dataset.device === filter) ? '' : 'none';
     });
+  };
+
+  document.querySelectorAll('[data-filter]').forEach(btn => {
+    btn.addEventListener('click', () => applyFilter(btn.dataset.filter));
   });
+
+  // apply the default active filter on load
+  const activeChip = document.querySelector('.chip--active[data-filter]');
+  if (activeChip) applyFilter(activeChip.dataset.filter);
 
   document.querySelectorAll('[data-launch]').forEach(el => {
     el.addEventListener('click', e => {
@@ -1015,7 +1112,22 @@ function bind() {
   });
 
   document.querySelectorAll('[data-deck]').forEach(d => {
-    d.addEventListener('click', () => startHeadsUp(d.dataset.deck));
+    d.addEventListener('click', () => { S.huSelectedDeck = d.dataset.deck; render(); });
+  });
+  on('btn-fu-play',  () => { if (S.huSelectedDeck) { startHeadsUp(S.huSelectedDeck); S.huSelectedDeck = null; } });
+  on('btn-fu-close', () => { S.huSelectedDeck = null; render(); });
+  on('btn-fu-close2',() => { S.huSelectedDeck = null; render(); });
+
+  on('btn-fu-filter-age',  () => { S.huOpenFilter = S.huOpenFilter === 'age'  ? null : 'age';  render(); });
+  on('btn-fu-filter-diff', () => { S.huOpenFilter = S.huOpenFilter === 'diff' ? null : 'diff'; render(); });
+  on('btn-fu-filter-close',() => { S.huOpenFilter = null; render(); });
+  document.querySelectorAll('[data-ftype]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.dataset.ftype === 'age')  S.huAgeFilter  = el.dataset.fval;
+      if (el.dataset.ftype === 'diff') S.huDiffFilter = el.dataset.fval;
+      S.huOpenFilter = null;
+      render();
+    });
   });
   on('btn-hu-got',     () => huGot());
   on('btn-hu-skip',    () => huSkip());
@@ -1024,6 +1136,9 @@ function bind() {
   on('btn-hu-replay',  () => go('hu-decks'));
   if (S.screen === 'hu-decks' || S.screen === 'hu-result') {
     on('btn-back', () => go(S.room ? 'game-select' : 'home'));
+  }
+  if (S.screen === 'hu-play') {
+    on('btn-back', () => { huEnd(); go('hu-decks'); });
   }
 }
 
@@ -1230,24 +1345,80 @@ function autoReveal() {
 // ─────────────────────────────────────────────
 // HEADS UP FLOW
 // ─────────────────────────────────────────────
-function startHeadsUp(deckId) {
-  S.huSession = new HeadsUpSession(deckId);
-  S.huTimer   = S.huSession.timeLimit;
-  clearInterval(S.huTimerInt);
-  if (window._huTilt) { window.removeEventListener('deviceorientation', window._huTilt); delete window._huTilt; }
-  go('hu-play');
-  if (window.DeviceOrientationEvent) {
-    let lastTilt = 0;
-    window._huTilt = e => {
-      const b = e.beta;
-      if (b === null) return;
-      const now = Date.now();
-      if (now - lastTilt < 600) return;
-      if (b > 55)  { lastTilt = now; huGot(); }
-      else if (b < -25) { lastTilt = now; huSkip(); }
-    };
-    window.addEventListener('deviceorientation', window._huTilt);
+// ─────────────────────────────────────────────
+// HEADS UP — ORIENTATION & AUDIO
+// ─────────────────────────────────────────────
+let _huOrientInt = null;
+
+function playBeep(freq, dur) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = freq; o.type = 'sine';
+    g.gain.setValueAtTime(0.4, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.start(); o.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+
+function huIsLandscape() {
+  if (screen.orientation) return screen.orientation.type.startsWith('landscape');
+  return window.innerWidth > window.innerHeight;
+}
+
+function huLandscapeCheck() {
+  if (S.screen !== 'hu-play' || S.huPhase !== 'wait') return;
+  if (huIsLandscape()) {
+    S.huPhase = 'countdown';
+    S.huCountdown = 3;
+    render();
+    huRunCountdown();
   }
+}
+
+function huRunCountdown() {
+  playBeep(880, 0.14);
+  let count = 3;
+  _huOrientInt = setInterval(() => {
+    count--;
+    S.huCountdown = count;
+    const el = document.getElementById('hu-cd-num');
+    if (el) el.textContent = count > 0 ? count : 'GO!';
+    if (count > 0) {
+      playBeep(880, 0.14);
+    } else {
+      clearInterval(_huOrientInt);
+      _huOrientInt = null;
+      playBeep(1320, 0.3);
+      setTimeout(() => {
+        if (S.screen !== 'hu-play') return;
+        S.huPhase = 'playing';
+        huAttachTilt();
+        huStartTimer();
+        render();
+      }, 450);
+    }
+  }, 1000);
+}
+
+function huAttachTilt() {
+  if (window._huTilt) window.removeEventListener('deviceorientation', window._huTilt);
+  let lastTilt = 0;
+  window._huTilt = e => {
+    if (S.screen !== 'hu-play' || S.huPhase !== 'playing') return;
+    const b = e.beta;
+    if (b === null) return;
+    const now = Date.now();
+    if (now - lastTilt < 900) return;
+    if (b < -20)      { lastTilt = now; huGot(); }
+    else if (b > 20)  { lastTilt = now; huSkip(); }
+  };
+  window.addEventListener('deviceorientation', window._huTilt);
+}
+
+function huStartTimer() {
+  clearInterval(S.huTimerInt);
   S.huTimerInt = setInterval(() => {
     S.huTimer = Math.max(0, S.huTimer - 1);
     const n = document.getElementById('hu-timer-num');
@@ -1260,6 +1431,32 @@ function startHeadsUp(deckId) {
     }
     if (S.huTimer === 0) huEnd();
   }, 1000);
+}
+
+function startHeadsUp(deckId) {
+  const launch = () => {
+    S.huSession   = new HeadsUpSession(deckId);
+    S.huTimer     = S.huSession.timeLimit;
+    S.huPhase     = 'wait';
+    S.huCountdown = 3;
+    clearInterval(S.huTimerInt);
+    clearInterval(_huOrientInt);
+    _huOrientInt = null;
+    if (window._huTilt) { window.removeEventListener('deviceorientation', window._huTilt); delete window._huTilt; }
+    window.addEventListener('orientationchange', huLandscapeCheck);
+    window.addEventListener('resize', huLandscapeCheck);
+    go('hu-play');
+    setTimeout(huLandscapeCheck, 150);
+  };
+
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(() => launch())
+      .catch(() => launch());
+  } else {
+    launch();
+  }
 }
 
 function huGot() {
@@ -1286,7 +1483,11 @@ function huSkip() {
 
 function huEnd() {
   clearInterval(S.huTimerInt);
+  clearInterval(_huOrientInt);
+  _huOrientInt = null;
   if (window._huTilt) { window.removeEventListener('deviceorientation', window._huTilt); delete window._huTilt; }
+  window.removeEventListener('orientationchange', huLandscapeCheck);
+  window.removeEventListener('resize', huLandscapeCheck);
   go('hu-result');
 }
 

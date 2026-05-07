@@ -483,7 +483,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 }
 .section-icon svg { width: 26px; height: 26px; }
 .section-title { font-size: 22px; font-weight: 700; color: var(--text-dark); line-height: 1.15; }
-.section-sub   { font-size: 13px; color: var(--text-light); margin-top: 2px; }
+.section-sub   { font-size: 11px; color: var(--text-light); margin-top: 2px; white-space: nowrap; }
 
 /* ===== SEARCH ===== */
 .search-wrap {
@@ -525,7 +525,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   padding: 0 16px;
   overflow-x: auto;
   scrollbar-width: none;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .filter-chips::-webkit-scrollbar { display: none; }
 .chip {
@@ -579,17 +579,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 }
 .glcard__img-icon { width: 48px; height: 48px; opacity: 0.85; }
 .glcard__img-icon svg { width: 48px; height: 48px; }
-.glcard__fav {
-  position: absolute;
-  top: 8px; right: 8px;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.9);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-  z-index: 2;
-}
-.glcard__fav svg { width: 14px; height: 14px; color: var(--text-light); }
 .glcard__body {
   padding: 10px 10px 12px;
   display: flex;
@@ -2537,3 +2526,352 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
 .sa-dossier-loc-badge svg { width: 20px; height: 20px; }
+
+/* ═══════════════════════════════════════════════════
+   FLIP UP — DECK SELECTION  (.fu-*)
+   ═══════════════════════════════════════════════════ */
+
+.fu-screen {
+  min-height: 100vh;
+  max-width: 430px;
+  margin: 0 auto;
+  width: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* Cork header */
+.fu-header {
+  position: relative;
+  flex-shrink: 0;
+}
+.fu-header-bg {
+  width: 100%; display: block;
+  pointer-events: none;
+}
+.fu-header-content {
+  position: absolute; inset: 0;
+  z-index: 1;
+}
+.fu-back-btn {
+  position: absolute; top: 14px; left: 14px;
+  background: rgba(0,0,0,0.22); border: none; border-radius: 50%;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.75); cursor: pointer;
+  transition: background 0.15s;
+}
+.fu-back-btn svg { width: 18px; height: 18px; }
+.fu-back-btn:active { background: rgba(0,0,0,0.4); }
+/* Filter pills + dropdown */
+.fu-filter-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 50;
+}
+.fu-filters-wrap {
+  position: relative;
+  z-index: 51;
+}
+.fu-filters {
+  display: flex; justify-content: center; gap: 8px;
+  padding: 12px 14px 8px;
+}
+.fu-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--paper);
+  border: 1.5px solid rgba(0,0,0,0.1);
+  border-radius: 50px; padding: 6px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
+  color: var(--text-mid); white-space: nowrap; flex-shrink: 0;
+  cursor: pointer; user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.fu-pill svg { width: 11px; height: 11px; }
+.fu-pill--static { cursor: default; }
+.fu-pill--on {
+  background: var(--accent); color: #fff;
+  border-color: transparent;
+}
+.fu-dropdown {
+  position: absolute;
+  top: calc(100% - 2px); left: 50%; transform: translateX(-50%);
+  background: var(--paper);
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden; z-index: 1; min-width: 190px;
+  animation: fuDropIn 0.14s cubic-bezier(0.34,1.4,0.64,1) both;
+}
+@keyframes fuDropIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
+.fu-drop-opt {
+  padding: 14px 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--text-dark); text-transform: uppercase;
+  border-bottom: 1px solid rgba(0,0,0,0.06); cursor: pointer;
+  transition: background 0.1s;
+}
+.fu-drop-opt:last-child { border-bottom: none; }
+.fu-drop-opt:active { background: rgba(0,0,0,0.04); }
+.fu-drop-opt--sel { color: var(--accent); }
+
+/* Empty state */
+.fu-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; padding: 48px 24px; text-align: center;
+}
+.fu-empty-title {
+  font-family: 'Bebas Neue', cursive; font-size: 28px;
+  letter-spacing: 0.06em; color: var(--text-dark);
+}
+.fu-empty-sub {
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  color: var(--text-mid); font-weight: 500;
+}
+
+/* Scrollable body */
+.fu-body {
+  flex: 1;
+  padding: 14px 14px 40px;
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto;
+}
+.fu-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 900; letter-spacing: 0.22em;
+  color: rgba(80,60,30,0.45); text-transform: uppercase;
+  margin-bottom: -2px;
+}
+
+/* Featured card */
+.fu-featured {
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden; position: relative;
+  height: 210px; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 18px 18px 16px;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: transform 0.12s;
+}
+.fu-featured:active { transform: scale(0.985); }
+.fu-featured-art {
+  position: absolute; top: 16px; right: 18px;
+  font-size: 90px; line-height: 1;
+  opacity: 0.3; pointer-events: none; user-select: none;
+}
+.fu-featured-badge {
+  position: absolute; top: 16px; left: 16px;
+  background: var(--accent, #E8481A); color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 900; letter-spacing: 0.18em;
+  padding: 4px 10px; border-radius: 4px; text-transform: uppercase;
+}
+.fu-featured-text { display: flex; flex-direction: column; gap: 3px; }
+.fu-featured-name {
+  font-family: 'Bebas Neue', cursive; font-size: 40px;
+  letter-spacing: 0.06em; color: #fff; line-height: 1;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.6);
+}
+.fu-featured-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+  color: rgba(255,255,255,0.55);
+}
+.fu-count-pill {
+  position: absolute; bottom: 16px; right: 16px;
+  background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.75);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
+  padding: 4px 10px; border-radius: 50px;
+}
+
+/* Deck grid */
+.fu-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.fu-card {
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden; position: relative;
+  height: 180px; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07);
+  transition: transform 0.12s;
+}
+.fu-card:active { transform: scale(0.97); }
+.fu-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+}
+.fu-card-art {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 62px; line-height: 1;
+  opacity: 0.28; pointer-events: none; user-select: none;
+}
+.fu-card-name {
+  font-family: 'Bebas Neue', cursive; font-size: 24px;
+  letter-spacing: 0.04em; color: #fff; line-height: 1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+.fu-card-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.03em;
+  color: rgba(255,255,255,0.45); line-height: 1.3; margin-top: 3px;
+}
+.fu-card-count {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.4); margin-top: 6px;
+}
+
+/* Deck modal */
+.fu-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 100;
+  animation: fuFadeIn 0.18s ease both;
+}
+@keyframes fuFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fu-modal {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 430px;
+  background: var(--paper); border-radius: 24px 24px 0 0;
+  z-index: 101; overflow: hidden;
+  will-change: transform;
+  animation: fuSheetUp 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes fuSheetUp {
+  from { transform: translateX(-50%) translateY(100%); }
+  to   { transform: translateX(-50%) translateY(0); }
+}
+.fu-modal-header {
+  padding: 28px 24px 22px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 5px; position: relative;
+}
+.fu-modal-art { font-size: 56px; line-height: 1; margin-bottom: 2px; }
+.fu-modal-name {
+  font-family: 'Bebas Neue', cursive; font-size: 36px;
+  letter-spacing: 0.06em; color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+.fu-modal-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.55);
+}
+.fu-modal-count {
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.75);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.14em;
+  padding: 4px 14px; border-radius: 50px; margin-top: 4px;
+}
+.fu-modal-body {
+  background: var(--paper);
+  padding: 18px 18px 32px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.fu-modal-how {
+  background: rgba(0,0,0,0.04); border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.fu-modal-how-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 900; letter-spacing: 0.2em;
+  color: rgba(0,0,0,0.3); text-transform: uppercase; margin-bottom: 2px;
+}
+.fu-modal-how-row {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; color: rgba(0,0,0,0.65);
+}
+.fu-modal-how-row svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-mid); }
+.fu-play-btn {
+  background: var(--deck-accent, var(--accent));
+  color: #fff; border: none; border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 900; letter-spacing: 0.08em;
+  padding: 16px 24px; cursor: pointer; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+  transition: transform 0.1s; text-transform: uppercase;
+}
+.fu-play-btn svg { width: 18px; height: 18px; }
+.fu-play-btn:active { transform: scale(0.97); }
+.fu-cancel-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: rgba(0,0,0,0.3); text-align: center; padding: 4px;
+  width: 100%;
+}
+.fu-cancel-btn:active { color: rgba(0,0,0,0.55); }
+
+/* ── Heads Up: rotate-to-landscape wait screen ── */
+.hu-orient-screen {
+  min-height: 100vh;
+  background: #0c0c14;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; padding: 28px;
+  text-align: center; position: relative;
+}
+.hu-orient-back {
+  position: absolute; top: 22px; left: 20px;
+  background: rgba(255,255,255,0.08); border: none;
+  border-radius: 50%; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.55); cursor: pointer;
+  transition: background 0.15s;
+}
+.hu-orient-back:active { background: rgba(255,255,255,0.16); }
+.hu-orient-back svg { width: 20px; height: 20px; }
+.hu-orient-svg { width: 140px; height: auto; opacity: 0.88; }
+.hu-orient-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 38px; letter-spacing: 0.06em;
+  color: #fff; line-height: 1;
+}
+.hu-orient-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  color: rgba(255,255,255,0.38); max-width: 220px;
+}
+
+/* ── Heads Up: countdown screen ── */
+.hu-countdown-screen {
+  min-height: 100vh;
+  background: #0c0c14;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px;
+}
+.hu-cd-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; font-weight: 900;
+  letter-spacing: 0.32em; color: rgba(255,255,255,0.28);
+  text-transform: uppercase;
+}
+.hu-cd-num {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 180px; line-height: 0.88;
+  color: #fff; letter-spacing: 0.02em;
+  text-shadow: 0 0 80px rgba(255,255,255,0.12);
+  animation: cdPop 0.18s ease-out;
+}
+@keyframes cdPop {
+  from { transform: scale(1.18); opacity: 0.5; }
+  to   { transform: scale(1);    opacity: 1; }
+}
