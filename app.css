@@ -1,37 +1,20 @@
-/* ===== PAGE RIP EFFECT ===== */
-.page-rip {
+/* ===== PAPER TEAR TRANSITION ===== */
+.section-tear {
   width: 100%;
-  height: 52px;
-  background: var(--paper);
-  position: relative;
-  z-index: 15;
+  display: block;
+  line-height: 0;
   margin-top: -2px;
-  filter: drop-shadow(0 -4px 10px rgba(0,0,0,0.22));
-  clip-path: polygon(
-    0% 58%,2% 28%,4% 62%,6% 22%,8% 68%,10% 32%,12% 72%,14% 18%,
-    16% 65%,18% 30%,20% 75%,22% 25%,24% 70%,26% 38%,28% 78%,30% 20%,
-    32% 62%,34% 35%,36% 80%,38% 18%,40% 60%,42% 28%,44% 72%,46% 22%,
-    48% 68%,50% 30%,52% 75%,54% 20%,56% 65%,58% 38%,60% 82%,62% 25%,
-    64% 68%,66% 32%,68% 76%,70% 22%,72% 60%,74% 35%,76% 78%,78% 18%,
-    80% 65%,82% 30%,84% 72%,86% 24%,88% 70%,90% 38%,92% 80%,94% 22%,
-    96% 64%,98% 35%,100% 58%,
-    100% 100%,0% 100%
-  );
-  animation: ripSettle 0.35s cubic-bezier(.22,1,.36,1) both;
-  transform-origin: bottom center;
+  position: relative;
+  z-index: 10;
+  background: transparent;
+  pointer-events: none;
 }
-@keyframes ripSettle {
-  0%   { transform: translateY(40%) scaleX(0.94); opacity: 0; }
-  60%  { transform: translateY(-4px) scaleX(1.01); opacity: 1; }
-  100% { transform: translateY(0) scaleX(1); opacity: 1; }
-}
-.page-rip.rip-animate {
-  animation: ripTear 0.55s cubic-bezier(.55,0,.1,1) forwards;
-}
-@keyframes ripTear {
-  0%   { transform: translateY(0) rotate(0deg) scaleY(1); opacity: 1; }
-  15%  { transform: translateY(-8px) rotate(0.5deg) scaleY(1.04); opacity: 1; }
-  100% { transform: translateY(-160%) rotate(-3deg) scaleY(1.8); opacity: 0; }
+.section-tear-img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  object-position: center bottom;
+  display: block;
 }
 :root {
   --bg:            #F2EBE0;
@@ -173,23 +156,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   position: relative;
   flex-shrink: 0;
 }
-.cork-board::after {
-  content: '';
-  position: absolute;
-  bottom: -1px; left: 0; right: 0;
-  height: 28px;
-  background: var(--bg);
-  clip-path: polygon(
-    0% 60%,3% 20%,6% 70%,9% 30%,12% 80%,15% 25%,18% 75%,
-    21% 35%,24% 85%,27% 20%,30% 70%,33% 30%,36% 80%,39% 15%,
-    42% 65%,45% 25%,48% 75%,51% 20%,54% 70%,57% 30%,60% 85%,
-    63% 25%,66% 75%,69% 35%,72% 80%,75% 20%,78% 70%,81% 30%,
-    84% 80%,87% 25%,90% 75%,93% 20%,96% 65%,100% 30%,
-    100% 100%,0% 100%
-  );
-  z-index: 5;
-}
-.cork-board--hero { padding: 24px 14px 56px; }
+.cork-board--hero { padding: 24px 14px 28px; }
 .cork-strip {
   width: 100%;
   background-color: var(--cork);

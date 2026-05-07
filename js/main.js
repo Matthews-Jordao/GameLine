@@ -125,6 +125,10 @@ function vHome() {
       </div>
     </div>
 
+    <div class="section-tear">
+      <img src="img/ripped%20edge.png" class="section-tear-img" alt="" draggable="false"/>
+    </div>
+
     <div class="section-heading">
       <div class="section-icon">${ICONS.controller}</div>
       <div>
