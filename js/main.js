@@ -41,7 +41,7 @@ function render() {
     <div class="rotate-hint">
       <div>${ICONS.person}</div>
       <div class="rotate-hint-title">Rotate your phone</div>
-      <div class="rotate-hint-sub">Party Pocket works best in portrait mode</div>
+      <div class="rotate-hint-sub">Game Line works best in portrait mode</div>
     </div>
     ${view()}
     <div class="toasts" id="toasts"></div>
@@ -475,13 +475,36 @@ function vSpyRole() {
   </div>`;
 }
 
+function getRoleIcon(role) {
+  if (!role) return 'spy';
+  const r = role.toLowerCase();
+  if (/guard|security|police|sniper|sergeant|drill|intel|soldier|general/.test(r)) return 'shield';
+  if (/doctor|nurse|medic|surgeon|anest|radiolog|health inspector/.test(r)) return 'medical';
+  if (/chef|cook|waiter|bartend|somm|dishwash|sous|hostess|deli|butcher|cashier/.test(r)) return 'chef';
+  if (/pilot|air traffic|flight attend|gate agent|mechanic/.test(r)) return 'plane';
+  if (/engineer|techni|life support|stock clerk|cart collect|janitor|cleaner/.test(r)) return 'wrench';
+  if (/captain|sailor|deck|boatswain|mate|purser|lookout|sonar|torpedo|cannoneer/.test(r)) return 'anchor';
+  if (/director|actor|producer|camera|screen|grip|stunt|makeup/.test(r)) return 'film';
+  if (/librarian|professor|student|researcher|archivist|teacher|scholar|counselor/.test(r)) return 'book';
+  if (/manager|principal|commander|ringmaster|curator|cruise director|pit boss|branch manager|station commander|announcer/.test(r)) return 'star';
+  if (/ghost|psychic|exorcist|paranormal|caretaker/.test(r)) return 'ghost';
+  if (/lifeguard|surfer|diver|fisherman|jet ski|expedition|sled|glaciolog|meteorolog/.test(r)) return 'waves';
+  if (/entertain|clown|acrobat|trapeze|fire breath|tightrope|cheer|superfan|fan/.test(r)) return 'mic';
+  if (/dealer|croupier|card counter|high roller|loan shark|bank robber|teller|loan officer|vault|auditor/.test(r)) return 'cards';
+  if (/tourist|passenger|customer|sunbather|visitor|terrified/.test(r)) return 'person';
+  if (/referee|quarterback|athlete|coach|team doctor|hot dog vendor/.test(r)) return 'people';
+  if (/astronaut|comms|mission specialist|flight engineer|geologist|navigator/.test(r)) return 'star';
+  return 'badge';
+}
+
 function vSpyDiscuss() {
   const mins = Math.floor(S.spyTimer / 60);
   const secs = String(S.spyTimer % 60).padStart(2, '0');
   const pct  = S.spyTimer / 480;
   const R = 52, C = 2 * Math.PI * R;
-  const col = S.spyTimer > 120 ? '#cc2222' : S.spyTimer > 30 ? '#F5C200' : '#ff4444';
-  const a   = S.spyMyAssignment;
+  const a = S.spyMyAssignment;
+  const locAccent = a?.location?.accent || '#1a6be8';
+  const roleIconKey = getRoleIcon(a?.role);
 
   return `
   <div class="sa-screen">
@@ -496,19 +519,27 @@ function vSpyDiscuss() {
       <div class="sa-timer-ring-wrap">
         <svg width="124" height="124" viewBox="0 0 124 124">
           <circle cx="62" cy="62" r="${R}" fill="none" stroke="rgba(200,20,20,0.15)" stroke-width="8"/>
-          <circle id="timer-arc" cx="62" cy="62" r="${R}" fill="none" stroke="${col}" stroke-width="8"
+          <circle id="timer-arc" cx="62" cy="62" r="${R}" fill="none" stroke="#cc2222" stroke-width="8"
             stroke-dasharray="${C * pct} ${C}" stroke-dashoffset="${C / 4}" stroke-linecap="round"/>
         </svg>
         <div class="sa-timer-num" id="timer-num">${mins}:${secs}</div>
       </div>
     </div>
 
-    <div class="sa-role-chip ${a?.isSpy ? 'sa-role-chip--spy' : 'sa-role-chip--civ'}">
-      <span class="sa-role-chip-dot ${a?.isSpy ? '' : 'sa-role-chip-dot--civ'}"></span>
-      ${a?.isSpy
-        ? `<span>You are <strong>THE SPY</strong> — blend in</span>`
-        : `<span><strong>${esc(a?.location?.name)}</strong> — ${esc(a?.role)}</span>`
-      }
+    <div class="sa-mission-card ${a?.isSpy ? 'sa-mission-card--spy' : ''}" ${a?.isSpy ? '' : `style="--loc-accent:${locAccent}"`}>
+      <div class="sa-mission-card-header">
+        <span class="sa-mission-card-label">YOUR ASSIGNMENT</span>
+        <span class="sa-mission-card-badge">${a?.isSpy ? 'TOP SECRET' : esc(a?.location?.name || '')}</span>
+      </div>
+      <div class="sa-mission-card-body">
+        <div class="sa-mission-role-icon">
+          ${a?.isSpy ? ICONS.spy : (ICONS[roleIconKey] || ICONS.badge)}
+        </div>
+        <div class="sa-mission-role-name">${a?.isSpy ? 'THE SPY' : esc(a?.role || '')}</div>
+      </div>
+      <div class="sa-mission-card-footer">
+        <span class="sa-mission-card-hint">${a?.isSpy ? 'Identify the location &mdash; blend in' : 'Keep your role secret from the spy'}</span>
+      </div>
     </div>
 
     <div class="sa-agents-section">
@@ -531,22 +562,31 @@ function vSpyDiscuss() {
         ${LOCATIONS.map(l => `
           <div class="sa-loc-pill sa-loc-crossable ${S.spyCrossed.has(l.name) ? 'sa-loc-crossed' : ''}"
                data-cross="${l.name}">
-            ${l.emoji} ${l.name}
+            ${l.name}
           </div>
         `).join('')}
       </div>
     </div>
     ` : `
     <div class="sa-rules-box">
-      <div class="sa-rules-row"><span>🗣️</span><span>Take turns — one question each</span></div>
-      <div class="sa-rules-row"><span>🔍</span><span>Expose the spy without revealing the location</span></div>
-      <div class="sa-rules-row"><span>🕵️</span><span>Don't let the spy guess the location!</span></div>
+      <div class="sa-rules-row">
+        <span class="sa-rules-icon">${ICONS.chat}</span>
+        <span>Take turns — one question each</span>
+      </div>
+      <div class="sa-rules-row">
+        <span class="sa-rules-icon">${ICONS.spy}</span>
+        <span>Don't reveal the location — expose the spy</span>
+      </div>
+      <div class="sa-rules-row">
+        <span class="sa-rules-icon">${ICONS.vote}</span>
+        <span>Vote together — all must confirm to end</span>
+      </div>
     </div>
     `}
 
     <div class="sa-discuss-actions">
       ${S.isHost ? `<button class="sa-btn-mission btn" id="btn-spy-vote">${ICONS.vote} COMMENCE VOTING</button>` : ''}
-      ${S.isHost ? `<button class="sa-btn-ghost btn sa-btn-end" id="btn-end-mission">✕ END MISSION</button>` : ''}
+      ${S.isHost ? `<button class="sa-btn-ghost btn sa-btn-end" id="btn-end-mission">${ICONS.close} END MISSION</button>` : ''}
     </div>
   </div>`;
 }
@@ -587,8 +627,8 @@ function vSpyGuessLocation() {
 
     <div class="sa-loc-grid sa-loc-grid--guess">
       ${LOCATIONS.map(l => `
-        <button class="sa-loc-btn" data-guess="${l.name}">
-          <span class="sa-loc-btn-emoji">${l.emoji}</span>
+        <button class="sa-loc-btn" data-guess="${l.name}" style="border-color:${l.accent}44">
+          <span class="sa-loc-btn-dot" style="background:${l.accent}"></span>
           <span class="sa-loc-btn-name">${l.name}</span>
         </button>
       `).join('')}
@@ -687,7 +727,9 @@ function vSpyResult() {
         <div class="sa-dossier-field">
           <div class="sa-dossier-label">OPERATION LOCATION</div>
           <div class="sa-dossier-location">
-            <span class="sa-dossier-emoji">${S.spyLocation?.emoji}</span>
+            <div class="sa-dossier-loc-badge" style="background:${S.spyLocation?.accent || '#cc2222'}">
+              ${ICONS.pin}
+            </div>
             <span class="sa-dossier-loc-name">${S.spyLocation?.name}</span>
           </div>
         </div>
