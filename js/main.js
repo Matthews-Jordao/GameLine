@@ -898,6 +898,10 @@ function vHuPlay() {
       </div>
       <div class="hu-orient-title">Rotate Your Phone</div>
       <div class="hu-orient-sub">Turn sideways to start the countdown</div>
+      ${(!navigator.standalone && !matchMedia('(display-mode: standalone)').matches && !document.documentElement.requestFullscreen && !document.documentElement.webkitRequestFullscreen) ? `
+      <div class="hu-orient-fs-tip">
+        ${ICONS.arrow} For fullscreen: tap Share → <strong>Add to Home Screen</strong>
+      </div>` : ''}
     </div>`;
   }
 
@@ -1114,7 +1118,14 @@ function bind() {
   document.querySelectorAll('[data-deck]').forEach(d => {
     d.addEventListener('click', () => { S.huSelectedDeck = d.dataset.deck; render(); });
   });
-  on('btn-fu-play',  () => { if (S.huSelectedDeck) { startHeadsUp(S.huSelectedDeck); S.huSelectedDeck = null; } });
+  on('btn-fu-play', () => {
+    if (!S.huSelectedDeck) return;
+    const el = document.documentElement;
+    if (el.requestFullscreen)            el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    startHeadsUp(S.huSelectedDeck);
+    S.huSelectedDeck = null;
+  });
   on('btn-fu-close', () => { S.huSelectedDeck = null; render(); });
   on('btn-fu-close2',() => { S.huSelectedDeck = null; render(); });
 
@@ -1404,16 +1415,40 @@ function huRunCountdown() {
 
 function huAttachTilt() {
   if (window._huTilt) window.removeEventListener('deviceorientation', window._huTilt);
-  let lastTilt = 0;
+
+  const calibSamples = [];
+  const CALIB      = 20;   // ~0.6s of samples to establish resting angle
+  const THRESHOLD  = 28;   // degrees from baseline to fire
+  const RESET_ZONE = 10;   // degrees from baseline = "back to neutral"
+  let baseline  = null;
+  let needsReset = true;   // require neutral position before first trigger
+
   window._huTilt = e => {
     if (S.screen !== 'hu-play' || S.huPhase !== 'playing') return;
     const b = e.beta;
     if (b === null) return;
-    const now = Date.now();
-    if (now - lastTilt < 900) return;
-    if (b < -20)      { lastTilt = now; huGot(); }
-    else if (b > 20)  { lastTilt = now; huSkip(); }
+
+    // Phase 1 — calibrate resting angle
+    if (baseline === null) {
+      calibSamples.push(b);
+      if (calibSamples.length >= CALIB) {
+        baseline = calibSamples.reduce((a, x) => a + x, 0) / CALIB;
+      }
+      return;
+    }
+
+    const tilt = b - baseline;
+
+    // Phase 2 — must return near-neutral before next trigger
+    if (needsReset) {
+      if (Math.abs(tilt) < RESET_ZONE) needsReset = false;
+      return;
+    }
+
+    if      (tilt < -THRESHOLD) { needsReset = true; huGot(); }
+    else if (tilt >  THRESHOLD) { needsReset = true; huSkip(); }
   };
+
   window.addEventListener('deviceorientation', window._huTilt);
 }
 
@@ -1488,6 +1523,8 @@ function huEnd() {
   if (window._huTilt) { window.removeEventListener('deviceorientation', window._huTilt); delete window._huTilt; }
   window.removeEventListener('orientationchange', huLandscapeCheck);
   window.removeEventListener('resize', huLandscapeCheck);
+  if (document.exitFullscreen && document.fullscreenElement)               document.exitFullscreen().catch(() => {});
+  else if (document.webkitExitFullscreen && document.webkitFullscreenElement) document.webkitExitFullscreen();
   go('hu-result');
 }
 

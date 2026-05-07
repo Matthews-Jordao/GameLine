@@ -2849,6 +2849,17 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   font-size: 14px; font-weight: 500;
   color: rgba(255,255,255,0.38); max-width: 220px;
 }
+.hu-orient-fs-tip {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 10px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,0.5); max-width: 260px; text-align: left;
+}
+.hu-orient-fs-tip svg { width: 14px; height: 14px; flex-shrink: 0; }
+.hu-orient-fs-tip strong { color: rgba(255,255,255,0.75); }
 
 /* ── Heads Up: countdown screen ── */
 .hu-countdown-screen {
