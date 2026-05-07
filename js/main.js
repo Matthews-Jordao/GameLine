@@ -3,11 +3,14 @@ import { LOCATIONS, generateAssignments, getVoteResult } from './games/spy.js';
 import { DECKS, HeadsUpSession } from './games/headsup.js';
 import { ICONS } from './icons.js';
 
+const VENMO_HANDLE = 'matthews-jordao';
+
 // ─────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────
 const S = {
   screen: 'home',
+  showDonate: false,
   room: null,
   players: [],
   myName: '',
@@ -94,12 +97,45 @@ function vHome() {
 
     <header class="logo-header">
       <img src="img/gameline.png" class="logo-img" alt="Game Line" draggable="false"/>
-      <button class="hamburger" aria-label="Menu">
-        <span></span><span></span><span></span>
+      <button class="donate-btn" id="btn-donate" aria-label="Support GameLine">
+        ${ICONS.dollar}
       </button>
     </header>
 
+    ${S.showDonate ? `
+    <div class="donate-backdrop" id="btn-donate-close"></div>
+    <div class="donate-sheet">
+      <div class="donate-pill"></div>
+      <div class="donate-header">
+        <div class="donate-header-label">SUPPORT THE DEV</div>
+        <div class="donate-header-title">Buy Me a Coffee</div>
+        <div class="donate-header-sub">Free app. No ads. No logins. Just games.</div>
+      </div>
+      <div class="donate-tips">
+        <a class="donate-tip" href="https://venmo.com/u/${VENMO_HANDLE}?txn=pay&amount=1.00&note=GameLine%20tip" target="_blank" rel="noopener">
+          <span class="donate-tip-amount">$1</span>
+          <span class="donate-tip-label">Quick tip</span>
+        </a>
+        <a class="donate-tip donate-tip--featured" href="https://venmo.com/u/${VENMO_HANDLE}?txn=pay&amount=5.00&note=GameLine%20tip" target="_blank" rel="noopener">
+          <span class="donate-tip-badge">POPULAR</span>
+          <span class="donate-tip-amount">$5</span>
+          <span class="donate-tip-label">Buy a coffee</span>
+        </a>
+        <a class="donate-tip" href="https://venmo.com/u/${VENMO_HANDLE}?txn=pay&amount=20.00&note=GameLine%20tip" target="_blank" rel="noopener">
+          <span class="donate-tip-amount">$20</span>
+          <span class="donate-tip-label">You rock</span>
+        </a>
+      </div>
+      <div class="donate-footer">
+        <span class="donate-footer-icon">${ICONS.link}</span>
+        Opens Venmo &nbsp;·&nbsp; @${VENMO_HANDLE}
+      </div>
+      <button class="donate-dismiss" id="btn-donate-close2">Maybe later</button>
+    </div>
+    ` : ''}
+
     <div class="cork-board cork-board--hero">
+      <img src="img/cork-hero.png" class="cork-hero-bg" alt="" draggable="false"/>
       <div class="hero-grid">
 
         <div class="hero-pin hero-pin--left" data-launch="spy">
@@ -123,10 +159,6 @@ function vHome() {
         </div>
 
       </div>
-    </div>
-
-    <div class="section-tear">
-      <img src="img/ripped%20edge.png" class="section-tear-img" alt="" draggable="false"/>
     </div>
 
     <div class="section-heading">
@@ -860,6 +892,10 @@ function bind() {
   on('btn-join',   () => doJoin());
   onKey('inp-name', 'Enter', () => doCreate());
   onKey('inp-code', 'Enter', () => doJoin());
+
+  on('btn-donate',       () => { S.showDonate = true;  render(); });
+  on('btn-donate-close', () => { S.showDonate = false; render(); });
+  on('btn-donate-close2',() => { S.showDonate = false; render(); });
 
   on('btn-back-home', () => go('home'));
   on('btn-back', () => leaveRoom());

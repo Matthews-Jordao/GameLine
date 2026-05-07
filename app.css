@@ -1,21 +1,3 @@
-/* ===== PAPER TEAR TRANSITION ===== */
-.section-tear {
-  width: 100%;
-  display: block;
-  line-height: 0;
-  margin-top: -2px;
-  position: relative;
-  z-index: 10;
-  background: transparent;
-  pointer-events: none;
-}
-.section-tear-img {
-  width: 100%;
-  height: 110px;
-  object-fit: cover;
-  object-position: center bottom;
-  display: block;
-}
 :root {
   --bg:            #F2EBE0;
   --cork:          #C4934A;
@@ -78,17 +60,100 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   object-fit: contain;
   display: block;
 }
-.hamburger {
+.donate-btn {
   margin-left: auto;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 8px;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--accent-green); padding: 0;
+  transition: background 0.15s, transform 0.15s;
 }
-.hamburger span { display: block; width: 22px; height: 2px; background: var(--white); border-radius: 2px; }
+.donate-btn:active { background: rgba(255,255,255,0.22); transform: scale(0.92); }
+.donate-btn svg { width: 20px; height: 20px; }
+
+/* ===== DONATE SHEET ===== */
+.donate-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 200; backdrop-filter: blur(4px);
+}
+.donate-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #111;
+  border-radius: 28px 28px 0 0;
+  padding: 14px 20px 44px;
+  z-index: 201;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 -2px 0 rgba(255,255,255,0.06), 0 -24px 60px rgba(0,0,0,0.6);
+  animation: sheetUp 0.32s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.donate-pill {
+  width: 36px; height: 4px; background: rgba(255,255,255,0.15);
+  border-radius: 2px; margin-bottom: 24px;
+}
+.donate-header { text-align: center; margin-bottom: 24px; }
+.donate-header-label {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.18em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 6px;
+}
+.donate-header-title {
+  font-family: 'Bebas Neue', cursive; font-size: 38px;
+  letter-spacing: 0.06em; color: #fff; line-height: 1; margin-bottom: 8px;
+}
+.donate-header-sub {
+  font-size: 13px; color: rgba(255,255,255,0.38);
+  font-weight: 500; letter-spacing: 0.01em;
+}
+.donate-tips {
+  display: flex; gap: 10px; width: 100%; margin-bottom: 20px;
+}
+.donate-tip {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 5px; padding: 18px 8px;
+  background: #1c1c1c; border: 1.5px solid rgba(255,255,255,0.07);
+  border-radius: 16px; text-decoration: none; color: #fff;
+  position: relative; overflow: hidden;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.donate-tip:active { transform: scale(0.95); }
+.donate-tip--featured {
+  background: var(--accent);
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(232,72,26,0.4);
+}
+.donate-tip-badge {
+  position: absolute; top: 7px;
+  font-size: 8px; font-weight: 900; letter-spacing: 0.14em;
+  color: rgba(255,255,255,0.8); text-transform: uppercase;
+}
+.donate-tip-amount {
+  font-family: 'Bebas Neue', cursive; font-size: 34px;
+  letter-spacing: 0.04em; line-height: 1;
+}
+.donate-tip-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: rgba(255,255,255,0.5);
+}
+.donate-tip--featured .donate-tip-label { color: rgba(255,255,255,0.75); }
+.donate-footer {
+  font-size: 11px; color: rgba(255,255,255,0.2);
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 20px; letter-spacing: 0.03em;
+}
+.donate-footer-icon svg { width: 12px; height: 12px; }
+.donate-dismiss {
+  background: none; border: none;
+  color: rgba(255,255,255,0.25); font-size: 13px;
+  font-weight: 600; letter-spacing: 0.04em;
+  cursor: pointer; padding: 6px 16px;
+  transition: color 0.15s;
+}
+.donate-dismiss:active { color: rgba(255,255,255,0.6); }
 
 /* ===== NAV BAR (game screens) ===== */
 .nav-bar {
@@ -156,7 +221,28 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   position: relative;
   flex-shrink: 0;
 }
-.cork-board--hero { padding: 24px 14px 28px; }
+.cork-board--hero {
+  padding: 24px 14px 28px;
+  overflow: visible;
+  background: none;
+  box-shadow: none;
+}
+.cork-hero-bg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: calc(100% + 72px);
+  object-fit: cover;
+  object-position: top center;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+  border-radius: 0;
+}
+.cork-board--hero .hero-grid {
+  position: relative;
+  z-index: 1;
+}
 .cork-strip {
   width: 100%;
   background-color: var(--cork);
