@@ -233,7 +233,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   width: 100%;
   height: calc(100% + 72px);
   object-fit: cover;
-  object-position: top center;
+  object-position: bottom center;
   z-index: 0;
   pointer-events: none;
   display: block;
