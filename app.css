@@ -222,7 +222,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   flex-shrink: 0;
 }
 .cork-board--hero {
-  padding: 24px 14px 0;
+  padding: 0 14px 0;
   min-height: 350px;
   overflow: visible;
   background: none;
