@@ -1,4 +1,4 @@
-# 🎉 Party Pocket
+# 🎉 Game Line
 
 Free multiplayer party games for your phone. No downloads, no accounts, no BS.
 

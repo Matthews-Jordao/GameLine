@@ -2886,3 +2886,103 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   from { transform: scale(1.18); opacity: 0.5; }
   to   { transform: scale(1);    opacity: 1; }
 }
+
+/* ── Reconnect banner ── */
+.reconnect-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: #cc2222; color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 700;
+  text-align: center; padding: 10px 16px;
+  letter-spacing: 0.05em;
+}
+
+/* ── SA: HOW TO PLAY ── */
+.sa-how-to-play {
+  margin: 0 16px 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  padding: 18px 16px;
+}
+.sa-htp-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 18px; letter-spacing: 0.12em;
+  color: #cc2222; margin-bottom: 14px;
+  text-align: center;
+}
+.sa-htp-section { margin-bottom: 16px; }
+.sa-htp-section:last-child { margin-bottom: 0; }
+.sa-htp-section-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px; font-weight: 900;
+  letter-spacing: 0.2em; color: rgba(255,255,255,0.3);
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.sa-htp-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; line-height: 1.45;
+  color: rgba(255,255,255,0.72);
+}
+.sa-htp-row:last-child { margin-bottom: 0; }
+.sa-htp-icon {
+  flex-shrink: 0; margin-top: 2px;
+  color: rgba(255,255,255,0.4);
+  font-size: 15px;
+}
+.sa-htp-row strong { color: #fff; font-weight: 700; }
+
+/* ── SA: First player banner ── */
+.sa-first-player-banner {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin: -4px 16px 12px;
+  background: rgba(204,34,34,0.14);
+  border: 1px solid rgba(204,34,34,0.3);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: rgba(255,255,255,0.85);
+}
+.sa-first-player-banner svg { width: 14px; height: 14px; color: #cc2222; }
+.sa-first-player-banner strong { color: #fff; font-weight: 800; }
+
+/* ── SA: Assignment card — location as main text ── */
+.sa-mission-location-name {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 30px; letter-spacing: 0.06em;
+  color: var(--loc-accent, #fff);
+  text-align: center; line-height: 1;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.sa-mission-card--spy .sa-mission-location-name {
+  color: rgba(255,255,255,0.4);
+  font-size: 22px;
+}
+/* Reduce role name size to make location the clear hero */
+.sa-mission-role-name {
+  font-size: 15px !important;
+  color: rgba(255,255,255,0.75) !important;
+}
+.sa-mission-role-icon svg { width: 28px !important; height: 28px !important; }
+
+/* ── SA: Commence voting progress ── */
+.sa-commence-wrap {
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  margin-bottom: 8px;
+}
+.sa-commence-progress {
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.38);
+  text-transform: uppercase;
+}
+.sa-btn-mission--dim {
+  opacity: 0.5;
+  cursor: default !important;
+}
